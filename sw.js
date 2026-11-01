@@ -1,6 +1,6 @@
 ﻿// Permet l'installation sur l'Ã©cran d'accueil et l'ouverture hors ligne.
 // RÃ©seau d'abord, cache en secours. Les donnÃ©es du tableur ne passent pas par ici.
-const CACHE = 'courses-v15';
+const CACHE = 'courses-v16';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -11,7 +11,7 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.searchParams.has('check')) return;
   e.respondWith(
     // no-cache : on redemande toujours au serveur s'il y a plus récent (sinon le navigateur garde l'ancienne page jusqu'à 10 min)
     fetch(e.request, { cache: 'no-cache' })
