@@ -244,10 +244,14 @@ async function driveFill(t, ctx, drive) {
 }
 
 async function processDrive(t, ctx) {
-  const { openDrive } = await import('./drive/drive.mjs');
+  const { openDrive, isLoggedIn } = await import('./drive/drive.mjs');
   const drive = await openDrive();
   try {
-    if (t['Statut'] === 'Validé') return await driveFill(t, ctx, drive);
+    if (t['Statut'] === 'Validé') {
+      await drive.call('get_cart'); // ouvre la page du magasin dans Chrome
+      if (!(await isLoggedIn())) throw new Error('Pas connecté à Leclerc : connecte-toi dans la fenêtre Chrome Leclerc du PC, puis Réessayer');
+      return await driveFill(t, ctx, drive);
+    }
     let produits = [];
     try { produits = JSON.parse(t['Fichier'] || '{}').produits || []; } catch {}
     // Demande d'une ancienne version de l'appli : les produits cochés

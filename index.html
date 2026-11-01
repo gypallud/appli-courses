@@ -510,7 +510,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 16; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 17; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1377,13 +1377,15 @@ function driveTicket() {
     const sheet = data.Tickets.find((x) => x['ID'] === driveLocal.id);
     // Le tableur n'a pas encore rattrapé ce qu'on vient d'envoyer : on affiche l'état local
     const rank = (s) => { const i = DRIVE_STEPS.indexOf(s); return i < 0 ? 9 : i; };
-    if (!sheet || rank(sheet['Statut']) < rank(driveLocal.statut)) cur = { ...cur, ...driveLocal };
+    if (!sheet || sheet['Statut'] === driveLocal.prev || rank(sheet['Statut']) < rank(driveLocal.statut)) cur = { ...cur, ...driveLocal };
   }
   return cur;
 }
 
 function setDriveLocal(id, statut) {
-  driveLocal = { id, statut, at: Date.now() };
+  // prev : état du tableur au moment de l'envoi, affiché tant qu'il n'a pas changé (ex. Erreur → Validé)
+  const prev = data.Tickets.find((x) => x['ID'] === id)?.['Statut'];
+  driveLocal = { id, statut, prev, at: Date.now() };
   store.set('driveLocal', driveLocal);
   render();
 }
@@ -1400,7 +1402,7 @@ function viewDrive() {
   if (s === 'À choisir') return ask(true);
   if (s === 'Validé') return row('<span class="badge neutral">⏳</span>', 'Panier Drive', 'Ajout au panier au prochain passage du PC');
   if (s === 'Traité' && Date.now() - t.at < 3 * 86400000) return row('<span class="badge ok">✓</span>', t.resume || 'Panier rempli', 'Choisis le créneau et paie sur Leclerc Drive', `<a class="link" href="${DRIVE_URL}" target="_blank" rel="noopener">Ouvrir</a>`) + ask(false);
-  if (s === 'Erreur' && Date.now() - t.at < 86400000) return row('<span class="badge danger">!</span>', 'Panier Drive non rempli', t.resume || 'Réessaie', '<button class="link" data-drive="request">Réessayer</button>');
+  if (s === 'Erreur' && Date.now() - t.at < 86400000) return row('<span class="badge danger">!</span>', 'Panier Drive non rempli', t.resume || 'Réessaie', '<button class="link" data-drive="retry">Réessayer</button>');
   return ask(false);
 }
 
@@ -1412,6 +1414,18 @@ async function requestDrive() {
     const out = await send({ action: 'requestDrive', par: profile, produits });
     setDriveLocal(out.id, 'En attente');
     toast('Demande envoyée · articles proposés au prochain passage');
+  } catch { toast('Pas de réseau : réessaie'); }
+}
+
+// Après une erreur : si les articles étaient déjà choisis, on redemande seulement le remplissage du panier
+async function retryDrive() {
+  const t = driveTicket();
+  const rows = data.Drive.filter((r) => String(r['Ticket']) === String(t?.id) && r['Choix']);
+  if (!rows.length) { requestDrive(); return; }
+  try {
+    await send({ action: 'driveSelect', id: t.id, choix: rows.map((r) => ({ produit: r['Produit'], id: String(r['Choix']), quantite: num(r['Quantité']) || 1 })) });
+    setDriveLocal(t.id, 'Validé');
+    toast('C’est noté · panier rempli au prochain passage');
   } catch { toast('Pas de réseau : réessaie'); }
 }
 
@@ -1982,7 +1996,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
   const dv = e.target.closest('[data-drive]');
-  if (dv) { ({ request: requestDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
+  if (dv) { ({ request: requestDrive, retry: retryDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
   const rs = e.target.closest('[data-rsort]');
   if (rs) { recipeSort = rs.dataset.rsort; store.set('recipeSort', recipeSort); render(); return; }
   const sl = e.target.closest('[data-sloc]');
