@@ -95,7 +95,7 @@ async function processAll() {
     log(`${t['Type']} de ${t['Envoyé par']} (${t['ID']})…`);
     const dir = fs.mkdtempSync(path.join(TMP, t['ID'] + '-'));
     try {
-      const img = await call('image', { fichier: t['Fichier'] });
+      const img = await call('image', { id: t['ID'] });
       const file = 'photo.' + (img.mime.includes('png') ? 'png' : 'jpg');
       fs.writeFileSync(path.join(dir, file), Buffer.from(img.data, 'base64'));
       const result = await runClaude(prompt(t, ctx, file), dir);

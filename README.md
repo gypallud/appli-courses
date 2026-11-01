@@ -24,7 +24,7 @@ Au premier lancement, choisir son profil. L'initiale en haut à droite ouvre les
 ## Fonctionnement
 
 ```
-Téléphone ──photo──> Apps Script ──> Drive « Appli Courses – Photos » + onglet Tickets (En attente)
+Téléphone ──photo──> Apps Script ──> onglet caché Photos + onglet Tickets (En attente)
                                                         │
 PC (worker, toutes les 15 s, gratuit) <── voit « En attente »
    └─> Claude Code lit la photo ──> Apps Script met à jour Stock / Historique / Courses ──> Tickets = Traité
@@ -43,15 +43,15 @@ Téléphone <── l'appli relit le Sheets (toutes les 15 s pendant une analyse
 - **Recettes** : `Ingrédients` et `Étapes` séparés par `;` (ex. `Blancs de poulet 500 g; Courgettes 2`).
   Colonnes facultatives : `Type`, `Difficulté`, `Coût`, `Préparation (min)`, `Cuisson (min)`, `Image` (URL d'une photo).
   Le profil Henda n'affiche jamais une recette marquée `Sans porc = Non`.
-- **Emplacements**, **Tickets** : créés par le script, gérés par l'appli.
+- **Emplacements**, **Tickets**, **Photos** (caché, vidé après analyse) : créés par le script, gérés par l'appli.
 
 ## Mise en place (une fois)
 
 ### 1. Apps Script
 1. Sheets > **Extensions > Apps Script**. Remplacer tout `Code.gs` par [`apps-script/Code.gs`](apps-script/Code.gs).
    Dans ⚙ Paramètres du projet, cocher « Afficher le fichier manifeste "appsscript.json" », puis remplacer `appsscript.json`
-   par [`apps-script/appsscript.json`](apps-script/appsscript.json) : il limite les autorisations au Sheets et aux fichiers
-   créés par le script (sans lui, Google affiche « Cette application est bloquée »). Enregistrer.
+   par [`apps-script/appsscript.json`](apps-script/appsscript.json) : il limite l'autorisation à ce seul Sheets
+   (sans lui, Google affiche « Cette application est bloquée »). Enregistrer.
 2. Choisir la fonction **installer** dans la liste en haut, cliquer **▶ Exécuter**, autoriser l'accès
    (« Google n'a pas validé cette application » : Paramètres avancés > Accéder au projet).
    Le journal affiche la **clé du PC** : la garder.

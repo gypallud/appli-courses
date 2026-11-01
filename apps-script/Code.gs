@@ -6,13 +6,16 @@
  * Actions de l'appli : setStatus, addCourses, setEmplacements, upload.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, fail.
  */
-const PHOTO_FOLDER = 'Appli Courses – Photos';
+// Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
+// puis sont effacées une fois traitées. Pas de Google Drive : Google bloque l'accès Drive pour un script non vérifié.
+const PHOTO_CHUNK = 45000;
 const HEADERS = {
   Stock: ['Produit', 'Catégorie', 'Quantité', 'Unité', 'Emplacement', "Date d'ajout", 'DLC', 'Dernière MAJ'],
   Courses: ['Produit', 'Quantité', 'Unité', 'Catégorie', 'Priorité', 'Ajouté par', 'Statut'],
   Historique: ['Date', 'Magasin', 'Produit', 'Quantité', 'Prix'],
   Tickets: ['ID', 'Date', 'Type', 'Emplacement', 'Envoyé par', 'Fichier', 'Statut', 'Résumé'],
   Emplacements: ['Nom'],
+  Photos: ['ID', 'Type MIME', 'Données'],
 };
 const DEFAULT_EMPLACEMENTS = ['Frigo', 'Congélateur', 'Placard'];
 
@@ -88,15 +91,16 @@ const ACTIONS = {
   upload: {
     run(b) {
       if (['ticket', 'stock'].indexOf(b.type) === -1) throw new Error('type invalide');
+      if (!b.image || b.image.length > 40 * PHOTO_CHUNK) throw new Error('photo absente ou trop lourde');
       const id = Utilities.getUuid().slice(0, 8);
       const now = new Date();
-      const name = Utilities.formatDate(now, 'Europe/Paris', 'yyyy-MM-dd_HH-mm') + '_' + b.type + '_' + id + '.jpg';
-      const blob = Utilities.newBlob(Utilities.base64Decode(b.image), b.mime || 'image/jpeg', name);
-      const file = folder().createFile(blob);
+      const chunks = [];
+      for (let i = 0; i < b.image.length; i += PHOTO_CHUNK) chunks.push(b.image.slice(i, i + PHOTO_CHUNK));
+      sheet('Photos').appendRow([id, b.mime || 'image/jpeg'].concat(chunks));
       table('Tickets').append({
         'ID': id, 'Date': Utilities.formatDate(now, 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
         'Type': b.type === 'ticket' ? 'Ticket de caisse' : 'Photo du stock',
-        'Emplacement': b.emplacement || '', 'Envoyé par': b.par || '', 'Fichier': file.getId(),
+        'Emplacement': b.emplacement || '', 'Envoyé par': b.par || '', 'Fichier': chunks.length + ' morceaux',
         'Statut': 'En attente', 'Résumé': '',
       });
       return { id };
@@ -120,8 +124,11 @@ const ACTIONS = {
   image: {
     worker: true,
     run(b) {
-      const blob = DriveApp.getFileById(b.fichier).getBlob();
-      return { mime: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
+      const sh = sheet('Photos');
+      const values = sh.getDataRange().getValues();
+      const row = values.find((r) => String(r[0]) === String(b.id));
+      if (!row) throw new Error('photo introuvable');
+      return { mime: row[1], data: row.slice(2).join('') };
     },
   },
 
@@ -181,9 +188,13 @@ const ACTIONS = {
 function setTicket(id, statut, resume) {
   const t = table('Tickets');
   const r = t.find('ID', id);
-  if (r < 0) return;
-  t.set(r, 'Statut', statut);
-  t.set(r, 'Résumé', resume);
+  if (r >= 0) {
+    t.set(r, 'Statut', statut);
+    t.set(r, 'Résumé', resume);
+  }
+  const photos = table('Photos');
+  const p = photos.find('ID', id);
+  if (p >= 0) photos.remove(p);
 }
 
 function emplacements() {
@@ -199,6 +210,7 @@ function sheet(name) {
     sh.getRange(1, 1, 1, HEADERS[name].length).setValues([HEADERS[name]]).setFontWeight('bold');
     sh.setFrozenRows(1);
     if (name === 'Emplacements') sh.getRange(2, 1, DEFAULT_EMPLACEMENTS.length, 1).setValues(DEFAULT_EMPLACEMENTS.map((n) => [n]));
+    if (name === 'Photos') sh.hideSheet();
   }
   return sh;
 }
@@ -242,11 +254,6 @@ function table(name) {
   };
 }
 
-function folder() {
-  const it = DriveApp.getFoldersByName(PHOTO_FOLDER);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(PHOTO_FOLDER);
-}
-
 function same(a, b) {
   return normalize(a) === normalize(b);
 }
@@ -259,10 +266,9 @@ function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-/** À lancer une fois depuis l'éditeur (bouton ▶ Exécuter) : crée les onglets manquants, le dossier photos et la clé du PC. */
+/** À lancer une fois depuis l'éditeur (bouton ▶ Exécuter) : crée les onglets manquants et la clé du PC. */
 function installer() {
   Object.keys(HEADERS).forEach(sheet);
-  folder();
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('WORKER_KEY')) props.setProperty('WORKER_KEY', Utilities.getUuid());
   Logger.log('Clé du PC (WORKER_KEY) : ' + props.getProperty('WORKER_KEY'));
