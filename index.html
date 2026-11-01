@@ -480,6 +480,7 @@ let data = store.get('data', { Stock: [], Courses: [], Recettes: [], Emplacement
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
+let localCourseRemovals = store.get('localCourseRemovals', []); // idem pour la liste de courses
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
@@ -552,7 +553,9 @@ const isBought = (item) => {
 
 function courses() {
   const known = new Set(data.Courses.map((c) => norm(c['Produit'])));
-  return data.Courses.filter((c) => c['Produit']).concat(localAdds.filter((a) => !known.has(norm(a['Produit']))));
+  const gone = new Set(localCourseRemovals.map((r) => r.key));
+  return data.Courses.filter((c) => c['Produit']).concat(localAdds.filter((a) => !known.has(norm(a['Produit']))))
+    .filter((c) => !gone.has(norm(c['Produit'])));
 }
 
 function reconcile() {
@@ -570,6 +573,8 @@ function reconcile() {
   const inStockKeys = new Set(data.Stock.map(stockKey));
   localRemovals = localRemovals.filter((r) => inStockKeys.has(r.key) && now - r.at < 600000);
   store.set('localRemovals', localRemovals);
+  localCourseRemovals = localCourseRemovals.filter((r) => known.has(r.key) && now - r.at < 600000);
+  store.set('localCourseRemovals', localCourseRemovals);
   const ids = new Set(data.Tickets.map((t) => t['ID']));
   myUploads = myUploads.filter((u) => !ids.has(u.id) && now - u.at < 600000);
   store.set('myUploads', myUploads);
@@ -782,7 +787,8 @@ let recipeFilter = store.get('recipeFilter', 'mine');
 
 const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_CAMERA = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
-const ICON_PLUS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const ICON_TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+const ICON_PLUS ='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 
 function empty(title, text) {
   return `<div class="empty"><strong>${esc(title)}</strong>${esc(text)}</div>`;
@@ -833,7 +839,9 @@ function viewStock() {
   if (!items.length) return html + empty('Rien en stock', 'Prends en photo un ticket ou un placard pour remplir le stock.');
   const urgent = items.filter((s) => s._days !== null && s._days < DLC_ALERT_DAYS);
   if (urgent.length) {
-    html += `<div class="alert"><span>⚠</span><span>${urgent.length === 1 ? '1 produit' : urgent.length + ' produits'} à consommer rapidement : ${urgent.map((s) => esc(s['Produit'])).join(', ')}</span></div>`;
+    urgent.sort((a, b) => a._days - b._days);
+    const names = urgent.slice(0, 3).map((s) => esc(s['Produit'])).join(', ') + (urgent.length > 3 ? ` et ${urgent.length - 3} autre${urgent.length > 4 ? 's' : ''}` : '');
+    html += `<div class="alert"><span>⚠</span><span>${urgent.length === 1 ? '1 produit' : urgent.length + ' produits'} à consommer rapidement : ${names}</span></div>`;
   }
   const counts = groupBy(items, 'Emplacement', locations());
   if (stockLoc !== 'all' && !counts.some(([l]) => l === stockLoc)) stockLoc = 'all';
@@ -883,27 +891,33 @@ function stockRowHTML(s) {
     else if (s._days < DLC_ALERT_DAYS) badge = `<span class="badge warn">${s._days === 1 ? 'Demain' : 'Dans ' + s._days + ' j'}</span>`;
   }
   const meta = s._dlc && !badge ? 'DLC ' + fmtDate(s._dlc) : '';
-  return `<div class="swipe${marked.has(s._key) ? ' marked' : ''}" data-key="${esc(s._key)}">
-    <div class="swipe-bg"><span class="l">${ICON_PLUS.replace(/22/g, '18')} Courses</span><span class="r">Supprimer <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span></div>
+  return `<div class="swipe${marked.has(s._key) ? ' marked' : ''}" data-kind="stock" data-key="${esc(s._key)}">
+    <div class="swipe-bg"><span class="l">${ICON_PLUS.replace(/22/g, '18')} Courses</span><span class="r">Supprimer ${ICON_TRASH}</span></div>
     <div class="row"><div class="main"><div class="name">${esc(s['Produit'])}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>${badge}<div class="qty">${esc(qtyText(s['Quantité'], s['Unité']))}</div></div>
   </div>`;
 }
 
-function toggleMark(key) {
-  if (marked.has(key)) marked.delete(key); else marked.add(key);
-  document.querySelectorAll('.swipe').forEach((el) => { if (el.dataset.key === key) el.classList.toggle('marked', marked.has(key)); });
+// Produits marqués pour suppression, par onglet (stock : clé produit|emplacement, courses : nom normalisé)
+const markedSets = { stock: marked, courses: new Set() };
+
+function toggleMark(key, kind = tab) {
+  const set = markedSets[kind];
+  if (set.has(key)) set.delete(key); else set.add(key);
+  document.querySelectorAll(`.swipe[data-kind="${kind}"]`).forEach((el) => { if (el.dataset.key === key) el.classList.toggle('marked', set.has(key)); });
   if (navigator.vibrate) navigator.vibrate(8);
   updateActionBar();
 }
 
 function updateActionBar() {
-  const show = tab === 'stock' && marked.size > 0 && !current;
+  const set = markedSets[tab];
+  const show = !!set && set.size > 0 && !current;
   $('#actionBar').hidden = !show;
   document.body.classList.toggle('has-bar', show);
-  if (show) $('#actionBarText').textContent = marked.size === 1 ? '1 produit à supprimer' : `${marked.size} produits à supprimer`;
+  if (show) $('#actionBarText').textContent = set.size === 1 ? '1 produit à supprimer' : `${set.size} produits à supprimer`;
 }
 
 async function confirmDelete() {
+  if (tab === 'courses') return confirmDeleteCourses();
   if (needSync()) return;
   const all = stockItems();
   const items = all.filter((s) => marked.has(s._key));
@@ -924,13 +938,36 @@ async function confirmDelete() {
   }
 }
 
+async function confirmDeleteCourses() {
+  if (needSync()) return;
+  const set = markedSets.courses;
+  const items = courses().filter((c) => set.has(norm(c['Produit'])));
+  const keys = new Set(items.map((c) => norm(c['Produit'])));
+  const now = Date.now();
+  localCourseRemovals.push(...[...keys].map((key) => ({ key, at: now })));
+  store.set('localCourseRemovals', localCourseRemovals);
+  localAdds = localAdds.filter((a) => !keys.has(norm(a['Produit'])));
+  store.set('localAdds', localAdds);
+  set.clear();
+  render();
+  try {
+    await send({ action: 'removeCourses', produits: items.map((c) => c['Produit']) });
+    toast(items.length === 1 ? `${items[0]['Produit']} retiré de la liste` : `${items.length} produits retirés de la liste`);
+  } catch {
+    localCourseRemovals = localCourseRemovals.filter((r) => !keys.has(r.key));
+    store.set('localCourseRemovals', localCourseRemovals);
+    render();
+    toast('Pas de réseau : rien n’a été supprimé');
+  }
+}
+
 function addFromStock(key) {
   if (needSync()) return;
   const s = stockItems().find((x) => x._key === key);
   if (s) addCourses([{ produit: s['Produit'], quantite: '', unite: '', categorie: s['Catégorie'] || 'Autre' }]);
 }
 
-// Glisser une ligne du stock : ← marque pour suppression, → ajoute aux courses
+// Glisser une ligne : ← marque pour suppression ; dans le stock, → ajoute aux courses
 let sw = null;
 let swipedAt = 0;
 const SWIPE_AT = 80;
@@ -949,7 +986,7 @@ window.addEventListener('pointermove', (e) => {
     sw.el.classList.add('dragging');
     try { sw.el.setPointerCapture(sw.id); } catch {}
   }
-  sw.dx = Math.max(-140, Math.min(140, dx));
+  sw.dx = Math.max(-140, Math.min(sw.el.dataset.kind === 'stock' ? 140 : 0, dx));
   sw.el.dataset.dir = sw.dx > 0 ? 'right' : 'left';
   sw.row.style.transform = `translateX(${sw.dx}px)`;
 });
@@ -964,7 +1001,7 @@ function endSwipe() {
   setTimeout(() => { delete el.dataset.dir; }, 200);
   if (Math.abs(dx) < SWIPE_AT) return;
   store.set('swipeHint', false);
-  if (dx < 0) toggleMark(el.dataset.key); else addFromStock(el.dataset.key);
+  if (dx < 0) toggleMark(el.dataset.key, el.dataset.kind); else addFromStock(el.dataset.key);
 }
 window.addEventListener('pointerup', endSwipe);
 window.addEventListener('pointercancel', endSwipe);
@@ -974,7 +1011,7 @@ $('#view').addEventListener('input', (e) => {
   $('#stockList').innerHTML = stockListHTML();
 });
 $('#confirmDelete').addEventListener('click', confirmDelete);
-$('#cancelDelete').addEventListener('click', () => { marked.clear(); render(); });
+$('#cancelDelete').addEventListener('click', () => { markedSets[tab]?.clear(); render(); });
 
 function viewCourses() {
   const items = courses();
@@ -992,14 +1029,18 @@ function viewCourses() {
     for (const c of list) {
       const high = norm(c['Priorité']) === 'haute' && !isBought(c);
       const by = c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
-      html += `<div class="row check-row${isBought(c) ? ' done' : ''}" role="checkbox" aria-checked="${isBought(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
+      const key = norm(c['Produit']);
+      html += `<div class="swipe${markedSets.courses.has(key) ? ' marked' : ''}" data-kind="courses" data-key="${esc(key)}">
+        <div class="swipe-bg"><span class="r">Supprimer ${ICON_TRASH}</span></div>
+        <div class="row check-row${isBought(c) ? ' done' : ''}" role="checkbox" aria-checked="${isBought(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
         <span class="box">${ICON_CHECK}</span>
         <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}</div>
         ${high ? '<span class="prio" title="Prioritaire"></span>' : ''}
-        <div class="qty">${esc(qtyText(c['Quantité'], c['Unité']))}</div></div>`;
+        <div class="qty">${esc(qtyText(c['Quantité'], c['Unité']))}</div></div></div>`;
     }
     html += '</div></div>';
   }
+  if (done) html += `<button class="btn ghost" data-clearbought style="margin-bottom:20px">Retirer ${done === 1 ? 'le produit acheté' : `les ${done} produits achetés`}</button>`;
   return html;
 }
 
@@ -1227,15 +1268,20 @@ document.addEventListener('click', (e) => {
   if (f) { recipeFilter = f.dataset.filter; store.set('recipeFilter', recipeFilter); render(); return; }
   const rc = e.target.closest('[data-recipe]');
   if (rc) { openRecipe(rc.dataset.recipe); return; }
+  // Toucher un produit marqué l'enlève de la suppression ; juste après un glissement, on ignore le clic
+  const m = e.target.closest('.swipe.marked');
+  if (m && Date.now() - swipedAt > 300) { toggleMark(m.dataset.key, m.dataset.kind); return; }
+  if (Date.now() - swipedAt < 300) return;
   const c = e.target.closest('[data-item]');
   if (c) { toggleItem(c.dataset.item); return; }
+  if (e.target.closest('[data-clearbought]')) {
+    courses().filter(isBought).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
+    render(); return;
+  }
   const sl = e.target.closest('[data-sloc]');
   if (sl) { stockLoc = sl.dataset.sloc; store.set('stockLoc', stockLoc); render(); return; }
   const col = e.target.closest('[data-collapse]');
   if (col) { const l = col.dataset.collapse; collapsed[l] = !collapsed[l]; store.set('collapsed', collapsed); render(); return; }
-  // Toucher un produit marqué l'enlève de la suppression
-  const m = e.target.closest('.swipe.marked');
-  if (m && Date.now() - swipedAt > 300) { toggleMark(m.dataset.key); return; }
 });
 document.addEventListener('keydown', (e) => {
   const c = e.target.closest?.('[data-item]');
