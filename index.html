@@ -511,7 +511,9 @@ const qtyText = (q, u) => [q, u].filter(Boolean).join(' ');
 const fmtMin = (m) => { m = num(m); if (m === null) return ''; return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`; };
 
 // ---- Données ----
-let data = store.get('data', { Stock: [], Courses: [], Recettes: [], Emplacements: [], Tickets: [] });
+let data = store.get('data', {});
+// Une copie enregistrée par une ancienne version peut manquer d'onglets (Tickets, Emplacements…)
+for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Tickets']) if (!Array.isArray(data[k])) data[k] = [];
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
@@ -1542,13 +1544,31 @@ function render() {
   });
   // Pendant la saisie d'une recherche, on ne redessine que la liste pour garder le clavier ouvert
   if (tab === 'stock' && document.activeElement?.id === 'stockSearch' && $('#stockList')) $('#stockList').innerHTML = stockListHTML();
-  else $('#view').innerHTML = view();
+  else {
+    let html;
+    try { html = view(); } catch (err) { html = errorView(err); }
+    $('#view').innerHTML = html;
+  }
   updateActionBar();
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   const left = courses().filter((c) => !isBought(c)).length;
   $('#coursesCount').hidden = !left;
   $('#coursesCount').textContent = left;
   if (current) renderRecipe();
+}
+
+// Une erreur d'affichage ne doit pas figer l'onglet : on propose de repartir des données du tableur
+function errorView(err) {
+  return `<div class="empty"><strong>Affichage impossible</strong>Les données gardées sur ce téléphone posent problème.
+    <button class="btn" data-repair style="margin-top:18px">Réparer</button>
+    <p class="hint" style="margin-top:14px;word-break:break-word">${esc(err && (err.message || err))}</p></div>`;
+}
+function repair() {
+  const keep = ['profile', 'tab'];
+  try {
+    Object.keys(localStorage).filter((k) => !keep.includes(k)).forEach((k) => localStorage.removeItem(k));
+  } catch {}
+  location.reload();
 }
 
 let toastTimer;
@@ -1584,6 +1604,7 @@ document.addEventListener('click', (e) => {
     courses().filter(isBought).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
     render(); return;
   }
+  if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
   const rs = e.target.closest('[data-rsort]');
   if (rs) { recipeSort = rs.dataset.rsort; store.set('recipeSort', recipeSort); render(); return; }
