@@ -62,7 +62,7 @@ Modifier le script plus tard : **Déployer > Gérer les déploiements > ✎ > No
 
 ### 2. PC
 1. Copier `worker/config.example.json` en `worker/config.json`, y mettre l'URL `/exec` et la clé du PC.
-2. Créer la tâche planifiée (12 h et 20 h) : `powershell -ExecutionPolicy Bypass -File workerinstall-taches.ps1`.
+2. Créer la tâche planifiée (12 h et 20 h) : `powershell -ExecutionPolicy Bypass -File worker/install-taches.ps1`.
    Pour changer les heures, modifier ce fichier et le relancer, ainsi que `ANALYSIS_TIMES` dans `index.html`.
    Traiter les photos tout de suite : `node worker/worker.js --once`. Surveillance continue : `worker/start-worker.cmd`.
 
