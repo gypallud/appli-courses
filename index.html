@@ -722,6 +722,20 @@ async function toggleItem(name) {
   }
 }
 
+// Coche ou décoche toute la liste ; les envois partent un par un, l'écran change tout de suite
+async function selectAll(on) {
+  const changed = courses().filter((c) => isSelected(c) !== on);
+  const now = Date.now();
+  changed.forEach((c) => { pending[norm(c['Produit'])] = { bought: on, at: now }; });
+  store.set('pending', pending);
+  render();
+  if (!SYNC_URL) return;
+  for (const c of changed) {
+    try { await send({ action: 'setStatus', produit: c['Produit'], statut: on ? 'Sélectionné' : 'À acheter', par: profile }); }
+    catch { toast('Pas de réseau : les coches seront renvoyées plus tard'); return; }
+  }
+}
+
 async function resendPending() {
   if (!SYNC_URL || !navigator.onLine) return;
   for (const [k, p] of Object.entries(pending)) {
@@ -1458,6 +1472,7 @@ function viewCourses() {
   const done = items.filter(isSelected).length;
   let html = SYNC_URL ? viewDrive() : '';
   html += `<p class="sub">${items.length} produit${items.length > 1 ? 's' : ''} · ${done ? `${done} sélectionné${done > 1 ? 's' : ''}` : 'coche ceux à acheter'}</p>`;
+  html += `<div class="list-tools"><button data-selectall="${done === items.length ? 'off' : 'on'}">${done === items.length ? 'Tout désélectionner' : 'Tout sélectionner'}</button></div>`;
   const prioRank = (p) => ({ haute: 0, moyenne: 1, basse: 2 }[norm(p)] ?? 1);
   const groups = groupBy(items, 'Catégorie');
   groups.sort((a, b) => a[0].localeCompare(b[0], 'fr'));
@@ -1956,6 +1971,8 @@ document.addEventListener('click', (e) => {
   if (sr) { openStockEdit(sr.dataset.key); return; }
   const c = e.target.closest('[data-item]');
   if (c) { toggleItem(c.dataset.item); return; }
+  const sa = e.target.closest('[data-selectall]');
+  if (sa) { selectAll(sa.dataset.selectall === 'on'); return; }
   if (e.target.closest('[data-clearbought]')) {
     courses().filter(isSelected).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
     render(); return;
