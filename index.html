@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Courses</title>
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Courses">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --text: #1c1d1f;
+  --muted: #6d7074;
+  --line: #e7e5df;
+  --accent: #2f6b4f;
+  --accent-soft: #e4efe8;
+  --warn: #b5641b;
+  --warn-soft: #fbeedd;
+  --danger: #b3362f;
+  --danger-soft: #f9e3e1;
+  --radius: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181a;
+    --surface: #1f2224;
+    --text: #ecebe7;
+    --muted: #9a9da1;
+    --line: #2d3134;
+    --accent: #7cc39e;
+    --accent-soft: #233a2f;
+    --warn: #e7a35e;
+    --warn-soft: #3b2c1b;
+    --danger: #f08a82;
+    --danger-soft: #3d2221;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* Accueil */
+#welcome {
+  min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+  padding: 32px 20px; max-width: 420px; margin: 0 auto;
+}
+#welcome h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+#welcome p { color: var(--muted); margin: 0 0 32px; }
+.profile-btn {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 12px; font-size: 18px; font-weight: 600; text-align: left;
+}
+.profile-btn:active { transform: scale(0.99); }
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 16px; flex: none;
+}
+
+/* En-tête */
+header {
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  padding: calc(14px + env(safe-area-inset-top)) 16px 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+header h1 { font-size: 26px; margin: 0; letter-spacing: -0.02em; }
+.header-actions { display: flex; align-items: center; gap: 6px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
+}
+.icon-btn:active { background: var(--line); }
+.icon-btn.spin svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#profileBtn .avatar { width: 36px; height: 36px; font-size: 14px; }
+
+main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+.sub { color: var(--muted); font-size: 14px; margin: -2px 0 16px; }
+
+/* Groupes et listes */
+.group { margin-bottom: 22px; }
+.group h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  margin: 0 0 8px 4px; font-weight: 600; display: flex; justify-content: space-between;
+}
+.group h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.row {
+  display: flex; align-items: center; gap: 12px; padding: 13px 14px; min-height: 54px;
+  border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row .main { flex: 1; min-width: 0; }
+.row .name { font-weight: 500; overflow-wrap: anywhere; }
+.row .meta { color: var(--muted); font-size: 13px; }
+.qty { color: var(--muted); font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.badge {
+  font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.danger { background: var(--danger-soft); color: var(--danger); }
+.badge.neutral { background: var(--line); color: var(--muted); }
+
+.alert {
+  display: flex; gap: 10px; align-items: flex-start; background: var(--warn-soft); color: var(--warn);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 18px; font-size: 14px; font-weight: 500;
+}
+
+/* Courses */
+.check-row { cursor: pointer; user-select: none; }
+.box {
+  width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); flex: none;
+  display: grid; place-items: center; transition: background 0.15s, border-color 0.15s;
+}
+.box svg { opacity: 0; transition: opacity 0.15s; }
+.check-row.done .box { background: var(--accent); border-color: var(--accent); }
+.check-row.done .box svg { opacity: 1; }
+.check-row.done .name { text-decoration: line-through; color: var(--muted); }
+.check-row.done .qty { opacity: 0.6; }
+.prio { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none; }
+.progress { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 0 0 20px; }
+.progress div { height: 100%; background: var(--accent); transition: width 0.3s; }
+
+/* Recettes */
+.seg {
+  display: flex; background: var(--line); border-radius: 11px; padding: 3px; margin-bottom: 18px;
+}
+.seg button {
+  flex: 1; padding: 8px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted);
+}
+.seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.recipe { margin-bottom: 12px; }
+.recipe summary {
+  list-style: none; padding: 14px; cursor: pointer; display: flex; gap: 12px; align-items: center;
+}
+.recipe summary::-webkit-details-marker { display: none; }
+.recipe summary .main { flex: 1; min-width: 0; }
+.recipe summary .chev { color: var(--muted); transition: transform 0.2s; flex: none; }
+.recipe[open] summary .chev { transform: rotate(90deg); }
+.recipe .name { font-weight: 600; }
+.recipe .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.recipe .body { padding: 0 14px 16px; border-top: 1px solid var(--line); }
+.recipe h3 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  margin: 14px 0 6px; font-weight: 600;
+}
+.recipe ul, .recipe ol { margin: 0; padding-left: 20px; }
+.recipe li { margin: 3px 0; }
+
+.empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+.empty strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+
+/* Barre d'onglets */
+nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-around;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+nav button {
+  flex: 1; max-width: 140px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0; font-size: 12px; font-weight: 600; color: var(--muted); border-radius: 10px;
+}
+nav button.on { color: var(--accent); }
+nav .count {
+  position: absolute; margin-left: 22px; margin-top: -2px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--accent); color: var(--surface); font-size: 11px; line-height: 18px;
+}
+nav .ico { position: relative; height: 24px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s; max-width: calc(100% - 32px); text-align: center;
+}
+.toast.show { opacity: 1; }
+
+/* Sélecteur de profil */
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20; display: flex; align-items: flex-end; }
+.sheet {
+  background: var(--bg); width: 100%; max-width: 640px; margin: 0 auto;
+  border-radius: 20px 20px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+}
+.sheet h2 { margin: 0 0 14px; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<section id="welcome" hidden>
+  <h1>Bonjour</h1>
+  <p>Qui utilise ce téléphone ?</p>
+  <div id="welcomeProfiles"></div>
+</section>
+
+<div id="app" hidden>
+  <header>
+    <h1 id="title">Stock</h1>
+    <div class="header-actions">
+      <button class="icon-btn" id="refreshBtn" aria-label="Actualiser">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+      </button>
+      <button class="icon-btn" id="profileBtn" aria-label="Changer de profil"><span class="avatar"></span></button>
+    </div>
+  </header>
+  <main id="view"></main>
+  <nav>
+    <button data-tab="stock">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 10h14M8.5 6v1.5M8.5 13v2"/></svg></span>
+      Stock
+    </button>
+    <button data-tab="courses">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 11.2a1.5 1.5 0 0 0 1.5 1.3h8.6a1.5 1.5 0 0 0 1.5-1.2L21 8H6.3"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17.5" cy="20" r="1.2"/></svg><span class="count" id="coursesCount" hidden></span></span>
+      Courses
+    </button>
+    <button data-tab="recettes">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h16a8 8 0 0 1-16 0Z"/><path d="M9 9c0-1.5 1-2 1-3.5M13 9c0-1.5 1-2 1-3.5"/></svg></span>
+      Recettes
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---- Configuration ----
+const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
+// V2 : URL de l'application Web Apps Script (se termine par /exec). Laisser vide = coches mémorisées sur ce téléphone uniquement.
+const SYNC_URL = '';
+const PROFILES = ['Henda', 'Gérémy'];
+const LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
+const DLC_ALERT_DAYS = 3;
+
+// ---- Utilitaires ----
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const yes = (s) => ['oui', 'yes', 'true', 'vrai', '1', 'x'].includes(norm(s));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+function parseCSV(text) {
+  const rows = []; let row = []; let field = ''; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  const [head, ...body] = rows;
+  if (!head) return [];
+  const keys = head.map((h) => h.trim());
+  return body
+    .filter((r) => r.some((v) => v.trim()))
+    .map((r) => Object.fromEntries(keys.map((k, i) => [k, (r[i] ?? '').trim()])));
+}
+
+// Accepte 2026-11-08, 08/11/2026, 8/11/26
+function parseDate(s) {
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m) return new Date(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+function daysUntil(d) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((d - t) / 86400000);
+}
+const fmtDate = (d) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+const qtyText = (q, u) => [q, u].filter(Boolean).join(' ');
+
+// ---- Données ----
+let data = store.get('data', { Stock: [], Courses: [], Recettes: [] });
+let pending = store.get('pending', {}); // coches pas encore confirmées par le tableur
+let loading = false;
+
+async function fetchSheet(name) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  const text = await res.text();
+  if (!res.ok || text.trimStart().startsWith('<')) throw new Error('unavailable');
+  return parseCSV(text);
+}
+
+async function refresh(manual) {
+  if (loading) return;
+  loading = true;
+  $('#refreshBtn').classList.add('spin');
+  try {
+    const [Stock, Courses, Recettes] = await Promise.all(['Stock', 'Courses', 'Recettes'].map(fetchSheet));
+    data = { Stock, Courses, Recettes, at: Date.now() };
+    store.set('data', data);
+    reconcilePending();
+    if (manual) toast('À jour');
+  } catch {
+    toast(data.at ? 'Hors ligne : dernières données affichées' : 'Impossible de charger les données');
+  } finally {
+    loading = false;
+    $('#refreshBtn').classList.remove('spin');
+    render();
+  }
+}
+
+// ---- Courses : statut et synchronisation ----
+const isBought = (item) => {
+  const p = pending[norm(item['Produit'])];
+  return p ? p.bought : norm(item['Statut']).startsWith('achete');
+};
+
+function reconcilePending() {
+  const now = Date.now();
+  for (const [k, p] of Object.entries(pending)) {
+    const item = data.Courses.find((c) => norm(c['Produit']) === k);
+    const sheetBought = item && norm(item['Statut']).startsWith('achete');
+    // Sans synchro, la coche reste locale. Avec synchro, on l'oublie dès que le tableur est d'accord (ou après 10 min).
+    if (!item || (SYNC_URL && (sheetBought === p.bought || now - p.at > 600000))) delete pending[k];
+  }
+  store.set('pending', pending);
+}
+
+async function toggleItem(name) {
+  const item = data.Courses.find((c) => c['Produit'] === name);
+  if (!item) return;
+  const bought = !isBought(item);
+  pending[norm(name)] = { bought, at: Date.now() };
+  store.set('pending', pending);
+  render();
+  if (navigator.vibrate) navigator.vibrate(8);
+  if (!SYNC_URL) return;
+  try {
+    // text/plain évite la requête préalable CORS, que Apps Script ne gère pas
+    await fetch(SYNC_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setStatus', produit: name, statut: bought ? 'Acheté' : 'À acheter', par: profile }),
+    });
+  } catch {
+    toast('Pas de réseau : la coche sera renvoyée plus tard');
+  }
+}
+
+async function resendPending() {
+  if (!SYNC_URL || !navigator.onLine) return;
+  for (const [k, p] of Object.entries(pending)) {
+    const item = data.Courses.find((c) => norm(c['Produit']) === k);
+    if (!item) continue;
+    try {
+      await fetch(SYNC_URL, {
+        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'setStatus', produit: item['Produit'], statut: p.bought ? 'Acheté' : 'À acheter', par: profile }),
+      });
+    } catch { return; }
+  }
+}
+
+// ---- Vues ----
+let profile = store.get('profile', null);
+let tab = store.get('tab', 'stock');
+let recipeFilter = store.get('recipeFilter', 'mine');
+
+const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+
+function empty(title, text) {
+  return `<div class="empty"><strong>${esc(title)}</strong>${esc(text)}</div>`;
+}
+
+function groupBy(list, key, order = []) {
+  const map = new Map();
+  for (const o of order) map.set(o, []);
+  for (const it of list) {
+    const k = it[key] || 'Autre';
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(it);
+  }
+  return [...map].filter(([, v]) => v.length);
+}
+
+function viewStock() {
+  const items = data.Stock.filter((s) => s['Produit']);
+  if (!items.length) return empty('Rien en stock', 'Le stock apparaîtra ici après la prochaine mise à jour.');
+  const withDlc = items.map((s) => {
+    const d = parseDate(s['DLC']);
+    return { ...s, _dlc: d, _days: d ? daysUntil(d) : null };
+  });
+  const urgent = withDlc.filter((s) => s._days !== null && s._days < DLC_ALERT_DAYS);
+  let html = '';
+  if (urgent.length) {
+    html += `<div class="alert"><span>⚠</span><span>${urgent.length === 1 ? '1 produit' : urgent.length + ' produits'} à consommer rapidement : ${urgent.map((s) => esc(s['Produit'])).join(', ')}</span></div>`;
+  }
+  for (const [loc, list] of groupBy(withDlc, 'Emplacement', LOCATIONS)) {
+    list.sort((a, b) => (a._days ?? 9999) - (b._days ?? 9999) || a['Produit'].localeCompare(b['Produit'], 'fr'));
+    html += `<div class="group"><h2>${esc(loc)}<span>${list.length}</span></h2><div class="card">`;
+    for (const s of list) {
+      let badge = '';
+      if (s._days !== null) {
+        if (s._days < 0) badge = '<span class="badge danger">Périmé</span>';
+        else if (s._days === 0) badge = '<span class="badge danger">Aujourd’hui</span>';
+        else if (s._days < DLC_ALERT_DAYS) badge = `<span class="badge warn">${s._days === 1 ? 'Demain' : 'Dans ' + s._days + ' j'}</span>`;
+      }
+      const meta = [s['Catégorie'], s._dlc && !badge ? 'DLC ' + fmtDate(s._dlc) : ''].filter(Boolean).join(' · ');
+      html += `<div class="row"><div class="main"><div class="name">${esc(s['Produit'])}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>${badge}<div class="qty">${esc(qtyText(s['Quantité'], s['Unité']))}</div></div>`;
+    }
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function viewCourses() {
+  const items = data.Courses.filter((c) => c['Produit']);
+  if (!items.length) return empty('Liste vide', 'Rien à acheter pour le moment.');
+  const done = items.filter(isBought).length;
+  let html = `<p class="sub">${items.length - done === 0 ? 'Tout est dans le panier' : `${items.length - done} à acheter · ${done} dans le panier`}</p>`;
+  html += `<div class="progress"><div style="width:${Math.round((done / items.length) * 100)}%"></div></div>`;
+  const prioRank = (p) => ({ haute: 0, moyenne: 1, basse: 2 }[norm(p)] ?? 1);
+  const groups = groupBy(items, 'Catégorie');
+  // Catégories avec encore des choses à acheter en premier
+  groups.sort((a, b) => (a[1].every(isBought) - b[1].every(isBought)) || a[0].localeCompare(b[0], 'fr'));
+  for (const [cat, list] of groups) {
+    list.sort((a, b) => isBought(a) - isBought(b) || prioRank(a['Priorité']) - prioRank(b['Priorité']) || a['Produit'].localeCompare(b['Produit'], 'fr'));
+    html += `<div class="group"><h2>${esc(cat)}<span>${list.filter((i) => !isBought(i)).length || '✓'}</span></h2><div class="card">`;
+    for (const c of list) {
+      const high = norm(c['Priorité']) === 'haute' && !isBought(c);
+      const by = c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
+      html += `<div class="row check-row${isBought(c) ? ' done' : ''}" role="checkbox" aria-checked="${isBought(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
+        <span class="box">${ICON_CHECK}</span>
+        <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}</div>
+        ${high ? '<span class="prio" title="Prioritaire"></span>' : ''}
+        <div class="qty">${esc(qtyText(c['Quantité'], c['Unité']))}</div></div>`;
+    }
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function viewRecettes() {
+  const me = norm(profile);
+  const henda = me === 'henda';
+  let list = data.Recettes.filter((r) => r['Nom']);
+  // Henda ne mange pas de porc : ses vues n'affichent jamais une recette qui n'est pas marquée sans porc
+  if (henda) list = list.filter((r) => yes(r['Sans porc']) || !r['Sans porc']);
+  const mine = list.filter((r) => norm(r['Profil']) === me);
+  const all = list.filter((r) => norm(r['Profil']) === me || yes(r['Partagée']));
+  const shown = (recipeFilter === 'mine' ? mine : all).slice().sort((a, b) => (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0));
+
+  let html = `<div class="seg" role="tablist">
+    <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
+    <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button></div>`;
+  if (!shown.length) return html + empty('Aucune recette', recipeFilter === 'mine' ? 'Tes recettes apparaîtront ici.' : 'Aucune recette partagée pour le moment.');
+
+  const split = (s) => String(s || '').split(/\s*[;\n]\s*/).filter(Boolean);
+  for (const r of shown) {
+    const tags = [];
+    if (r['Temps (min)']) tags.push(`<span class="badge neutral">${esc(r['Temps (min)'])} min</span>`);
+    if (r['Portions']) tags.push(`<span class="badge neutral">${esc(r['Portions'])} pers.</span>`);
+    if (r['Sans porc'] && !yes(r['Sans porc'])) tags.push('<span class="badge warn">Contient du porc</span>');
+    if (norm(r['Profil']) !== me && r['Profil']) tags.push(`<span class="badge neutral">${esc(r['Profil'])}</span>`);
+    html += `<details class="card recipe"><summary><div class="main"><div class="name">${esc(r['Nom'])}</div><div class="tags">${tags.join('')}</div></div>${ICON_CHEV}</summary>
+      <div class="body">
+        <h3>Ingrédients</h3><ul>${split(r['Ingrédients']).map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+        <h3>Étapes</h3><ol>${split(r['Étapes']).map((i) => `<li>${esc(i)}</li>`).join('')}</ol>
+      </div></details>`;
+  }
+  return html;
+}
+
+const VIEWS = { stock: ['Stock', viewStock], courses: ['Courses', viewCourses], recettes: ['Recettes', viewRecettes] };
+
+function render() {
+  if (!profile) {
+    $('#app').hidden = true; $('#welcome').hidden = false;
+    $('#welcomeProfiles').innerHTML = PROFILES.map((p) => `<button class="profile-btn" data-profile="${esc(p)}"><span class="avatar">${esc(p[0])}</span>${esc(p)}</button>`).join('');
+    return;
+  }
+  $('#welcome').hidden = true; $('#app').hidden = false;
+  const [title, view] = VIEWS[tab] || VIEWS.stock;
+  $('#title').textContent = title;
+  document.title = title;
+  $('#profileBtn .avatar').textContent = profile[0];
+  const openRecipes = [...document.querySelectorAll('.recipe[open] .name')].map((n) => n.textContent);
+  $('#view').innerHTML = view();
+  document.querySelectorAll('.recipe').forEach((d) => { if (openRecipes.includes(d.querySelector('.name').textContent)) d.open = true; });
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  const left = data.Courses.filter((c) => c['Produit'] && !isBought(c)).length;
+  $('#coursesCount').hidden = !left;
+  $('#coursesCount').textContent = left;
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function chooseProfile() {
+  const bg = document.createElement('div');
+  bg.className = 'sheet-bg';
+  bg.innerHTML = `<div class="sheet"><h2>Changer de profil</h2>${PROFILES.map((p) => `<button class="profile-btn" data-profile="${esc(p)}"><span class="avatar">${esc(p[0])}</span>${esc(p)}${p === profile ? ' <span class="badge neutral" style="margin-left:auto">Actuel</span>' : ''}</button>`).join('')}</div>`;
+  bg.addEventListener('click', (e) => { if (e.target === bg) bg.remove(); });
+  document.body.appendChild(bg);
+}
+
+// ---- Événements ----
+document.addEventListener('click', (e) => {
+  const p = e.target.closest('[data-profile]');
+  if (p) {
+    profile = p.dataset.profile; store.set('profile', profile);
+    document.querySelector('.sheet-bg')?.remove();
+    render(); return;
+  }
+  const t = e.target.closest('nav [data-tab]');
+  if (t) { tab = t.dataset.tab; store.set('tab', tab); window.scrollTo(0, 0); render(); return; }
+  const f = e.target.closest('[data-filter]');
+  if (f) { recipeFilter = f.dataset.filter; store.set('recipeFilter', recipeFilter); render(); return; }
+  const c = e.target.closest('[data-item]');
+  if (c) { toggleItem(c.dataset.item); return; }
+});
+document.addEventListener('keydown', (e) => {
+  const c = e.target.closest?.('[data-item]');
+  if (c && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggleItem(c.dataset.item); }
+});
+$('#refreshBtn').addEventListener('click', () => refresh(true));
+$('#profileBtn').addEventListener('click', chooseProfile);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+window.addEventListener('online', () => resendPending().then(() => refresh()));
+
+render();
+refresh().then(resendPending);
+setInterval(() => { if (!document.hidden) refresh(); }, 60000);
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
