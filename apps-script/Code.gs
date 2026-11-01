@@ -3,8 +3,9 @@
  * À coller dans Extensions > Apps Script du Google Sheets « Appli Courses – Base de données ».
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
- * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, removeStock, setEmplacements, upload.
- * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, fail.
+ * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, removeStock, setEmplacements, upload,
+ *   saveRecipe, deleteRecipe, requestIdeas.
+ * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
 // puis sont effacées une fois traitées. Pas de Google Drive : Google bloque l'accès Drive pour un script non vérifié.
@@ -175,6 +176,47 @@ const ACTIONS = {
     },
   },
 
+  saveRecipe: {
+    run(b) {
+      const rec = b.recette || {};
+      if (!rec['Nom']) throw new Error('nom manquant');
+      const t = table('Recettes');
+      const r = t.find('Nom', b.original || rec['Nom']);
+      if (r >= 0) {
+        Object.keys(rec).forEach((k) => {
+          try { t.set(r, k, rec[k]); } catch (e) { /* colonne absente du tableur */ }
+        });
+      } else {
+        rec['Date'] = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+        t.append(rec);
+      }
+      return {};
+    },
+  },
+
+  deleteRecipe: {
+    run(b) {
+      const t = table('Recettes');
+      const r = t.find('Nom', b.nom);
+      if (r >= 0) t.remove(r);
+      return {};
+    },
+  },
+
+  // Demande d'idées de recettes : traitée par le PC (colonne Fichier = paramètres de la demande)
+  requestIdeas: {
+    run(b) {
+      const id = Utilities.getUuid().slice(0, 8);
+      table('Tickets').append({
+        'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
+        'Type': 'Idées recettes', 'Emplacement': '', 'Envoyé par': b.par || '',
+        'Fichier': JSON.stringify({ nombre: Math.max(1, Math.min(5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200) }),
+        'Statut': 'En attente', 'Résumé': '',
+      });
+      return { id };
+    },
+  },
+
   // ---- PC ----
   pending: {
     worker: true,
@@ -184,8 +226,24 @@ const ACTIONS = {
         tickets: t.rows().filter((r) => r['Statut'] === 'En attente'),
         stock: table('Stock').rows(),
         courses: table('Courses').rows(),
+        recettes: table('Recettes').rows().map((r) => r['Nom']),
         emplacements: emplacements(),
       };
+    },
+  },
+
+  applyRecipes: {
+    worker: true,
+    run(b) {
+      const t = table('Recettes');
+      const today = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      (b.recettes || []).forEach((rec) => {
+        if (!rec['Nom'] || t.find('Nom', rec['Nom']) >= 0) return;
+        rec['Date'] = today;
+        t.append(rec);
+      });
+      setTicket(b.id, 'Traité', b.resume || '');
+      return {};
     },
   },
 

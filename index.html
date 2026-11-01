@@ -229,7 +229,7 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
   background: var(--surface); border: 1px solid var(--line); border-radius: 20px; margin-top: -28px; position: relative;
   padding: 18px 16px 16px;
 }
-.rhead h1 { font-size: 25px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 6px; }
+.rhead h1 { font-size: 25px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 6px; padding-right: 84px; }
 .rhead .by { color: var(--muted); font-size: 14px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
 .stat { text-align: center; }
@@ -375,11 +375,26 @@ nav .ico { position: relative; height: 24px; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .field { display: block; margin-bottom: 12px; }
 .field span { display: block; font-size: 13px; color: var(--muted); margin: 0 0 5px 4px; }
-.field input, .field select {
+.field input, .field select, .field textarea {
   width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
-  outline: none;
+  outline: none; font: inherit; color: inherit;
 }
-.field input:focus, .field select:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.ideas-btn {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin-bottom: 16px; padding: 14px 16px;
+  border-radius: 16px; color: #1c1d1f; background: linear-gradient(135deg, #f6e3b4, #f3cfd8 60%, #d7e6f6);
+}
+.ideas-btn .emoji { font-size: 28px; }
+.ideas-btn b { display: block; font-size: 16px; }
+.ideas-btn small { display: block; font-size: 13px; opacity: 0.75; }
+.ideas-btn:active { transform: scale(0.99); }
+.fit { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg); border-radius: 999px; padding: 3px 9px; }
+.fit.full { color: var(--accent); background: var(--accent-soft); }
+.edit-btn {
+  position: absolute; top: 16px; right: 14px; font-size: 13px; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft); padding: 6px 12px; border-radius: 999px;
+}
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .loc-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; }
 .loc-row input { flex: 1; border: 0; background: none; padding: 8px 0; outline: none; min-width: 0; }
@@ -441,11 +456,12 @@ const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
 const DLC_ALERT_DAYS = 3;
 const ANALYSIS_TIMES = '12 h et 20 h'; // heures des tâches planifiées sur le PC
+const IDEAS_TIMES = '12 h 10 et 20 h 10';
 
 // ---- Utilitaires ----
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const norm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const norm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/œ/g, 'oe').replace(/æ/g, 'ae');
 const yes = (s) => ['oui', 'yes', 'true', 'vrai', '1', 'x'].includes(norm(s));
 const num = (s) => { const n = parseFloat(String(s ?? '').replace(',', '.')); return isNaN(n) ? null : n; };
 const store = {
@@ -657,17 +673,19 @@ async function addCourses(items) {
 }
 
 // ---- Photos ----
-const TYPES = { ticket: 'Ticket de caisse', stock: 'Photo du stock' };
+const TYPES = { ticket: 'Ticket de caisse', stock: 'Photo du stock', ideas: 'Idées recettes' };
 
-function uploads() {
+// scope 'photos' : tickets et photos du stock (onglet Stock) ; 'ideas' : demandes d'idées (onglet Recettes)
+function uploads(scope = 'photos') {
   const day = Date.now() - 86400000;
+  const inScope = (type) => (type === TYPES.ideas) === (scope === 'ideas');
   const fromSheet = data.Tickets
-    .filter((t) => (parseDate(t['Date']) || 0) > day)
+    .filter((t) => (parseDate(t['Date']) || 0) > day && inScope(t['Type']))
     .map((t) => {
       const s = norm(t['Statut']);
       return { id: t['ID'], type: t['Type'], loc: t['Emplacement'], by: t['Envoyé par'], at: +parseDate(t['Date']), state: s.startsWith('trait') ? 'done' : s.startsWith('err') ? 'error' : 'wait', summary: t['Résumé'] };
     });
-  const mine = myUploads.map((u) => ({ ...u, type: TYPES[u.type], by: profile, state: 'wait' }));
+  const mine = myUploads.map((u) => ({ ...u, type: TYPES[u.type], by: profile, state: 'wait' })).filter((u) => inScope(u.type));
   return mine.concat(fromSheet).sort((a, b) => b.at - a.at).slice(0, 3);
 }
 
@@ -899,15 +917,17 @@ function groupBy(list, key, order = []) {
   return [...map.values()].filter(([, v]) => v.length);
 }
 
-function viewUploads() {
-  const list = uploads();
+function viewUploads(scope = 'photos') {
+  const list = uploads(scope);
   if (!list.length) return '';
+  const ideas = scope === 'ideas';
   return `<div class="uploads">${list.map((u) => {
-    const what = u.type === 'Photo du stock' && u.loc ? `Photo · ${u.loc}` : (u.type || 'Photo');
+    const what = ideas ? '✨ Idées de recettes' : u.type === 'Photo du stock' && u.loc ? `Photo · ${u.loc}` : (u.type || 'Photo');
     const when = new Date(u.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    let icon = u.sending ? '<span class="dot-spin"></span>' : '<span class="badge neutral">⏳</span>', meta = u.sending ? 'Envoi…' : `En attente · traitée à ${ANALYSIS_TIMES}`;
-    if (u.state === 'done') { icon = '<span class="badge ok">✓</span>'; meta = u.summary || 'Stock mis à jour'; }
-    if (u.state === 'error') { icon = '<span class="badge danger">!</span>'; meta = 'Photo illisible, essaie d’en reprendre une'; }
+    let icon = u.sending ? '<span class="dot-spin"></span>' : '<span class="badge neutral">⏳</span>';
+    let meta = u.sending ? 'Envoi…' : ideas ? `En attente · prêtes à ${IDEAS_TIMES}` : `En attente · traitée à ${ANALYSIS_TIMES}`;
+    if (u.state === 'done') { icon = '<span class="badge ok">✓</span>'; meta = u.summary || (ideas ? 'Recettes ajoutées' : 'Stock mis à jour'); }
+    if (u.state === 'error') { icon = '<span class="badge danger">!</span>'; meta = ideas ? 'Pas d’idée trouvée, réessaie' : 'Photo illisible, essaie d’en reprendre une'; }
     return `<div class="upload">${icon}<div class="main"><div class="name">${esc(what)}</div><div class="meta">${esc(meta)}</div></div><div class="qty">${esc(u.by ? u.by + ' · ' : '')}${when}</div></div>`;
   }).join('')}</div>`;
 }
@@ -1222,24 +1242,162 @@ function factsHTML(r) {
   return f.join('');
 }
 
+let recipeSort = store.get('recipeSort', 'recent');
+
+// Part des ingrédients déjà en stock, et nombre d'ingrédients qui utilisent un produit bientôt périmé
+function stockFit(r) {
+  const ings = split(r['Ingrédients']).map(parseIngredient);
+  const urgent = stockItems().filter(isUrgent);
+  const have = ings.filter((i) => inStock(i.name)).length;
+  const saves = ings.filter((i) => urgent.some((s) => matchesProduct(i.name, s['Produit']))).length;
+  return { have, total: ings.length, saves, ratio: ings.length ? have / ings.length : 0 };
+}
+
 function viewRecettes() {
   const me = norm(profile);
   const list = visibleRecipes();
   const mine = list.filter((r) => norm(r['Profil']) === me);
   const all = list.filter((r) => norm(r['Profil']) === me || yes(r['Partagée']));
-  const shown = (recipeFilter === 'mine' ? mine : all).slice().sort((a, b) => (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0));
+  const fits = new Map(list.map((r) => [r, stockFit(r)]));
+  const shown = (recipeFilter === 'mine' ? mine : all).slice().sort((a, b) => recipeSort === 'stock'
+    ? fits.get(b).saves - fits.get(a).saves || fits.get(b).ratio - fits.get(a).ratio
+    : (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0));
 
-  let html = `<div class="seg" role="tablist">
+  let html = viewUploads('ideas');
+  html += `<button class="ideas-btn" data-ideas>
+      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Des recettes sans porc qui utilisent ce qu’il y a à la maison</small></span>
+    </button>
+    <div class="seg" role="tablist">
     <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
-    <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button></div>`;
-  if (!shown.length) return html + empty('Aucune recette', recipeFilter === 'mine' ? 'Tes recettes apparaîtront ici.' : 'Aucune recette partagée pour le moment.');
+    <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button></div>
+    <div class="chips">
+      <button class="chip${recipeSort === 'recent' ? ' on' : ''}" data-rsort="recent">Récentes</button>
+      <button class="chip${recipeSort === 'stock' ? ' on' : ''}" data-rsort="stock">🧺 Avec mon stock</button>
+    </div>`;
+  if (!shown.length) return html + empty('Aucune recette', recipeFilter === 'mine' ? 'Touche + pour ajouter ta première recette.' : 'Aucune recette partagée pour le moment.');
   html += '<div class="recipes">';
   for (const r of shown) {
     const other = norm(r['Profil']) !== me && r['Profil'] ? `<span class="pill">${esc(r['Profil'])}</span>` : '';
+    const fit = fits.get(r);
+    const fitHTML = fit.total ? `<span class="fit${fit.have === fit.total ? ' full' : ''}">🧺 ${fit.have}/${fit.total} en stock${fit.saves ? ` · ♻ ${fit.saves} à finir` : ''}</span>` : '';
     html += `<button class="rcard" data-recipe="${recipeId(r)}">${heroHTML(r, other)}
-      <div class="info"><div class="title">${esc(r['Nom'])}</div><div class="facts">${factsHTML(r)}</div></div></button>`;
+      <div class="info"><div class="title">${esc(r['Nom'])}</div><div class="facts">${factsHTML(r)}</div>${fitHTML}</div></button>`;
   }
   return html + '</div>';
+}
+
+function openIdeasSheet() {
+  if (needSync()) return;
+  let n = 3;
+  const bg = openSheet(`<h2>✨ Idées de recettes</h2>
+    <p class="hint" style="margin:-6px 4px 16px">Claude propose des recettes pour 3, sans porc, avec ce qu’il y a en stock, en priorité les produits à finir. Elles arrivent dans « Mes recettes » à ${IDEAS_TIMES}.</p>
+    <span class="field"><span>Combien de recettes ?</span></span>
+    <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="3" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>
+    <label class="field"><span>Une envie ? (facultatif)</span><input id="ideasWish" placeholder="Ex. rapide, végétarien, gratin, soupe…" maxlength="200" autocomplete="off"></label>
+    <button class="btn" id="ideasGo">Demander</button>`);
+  bg.addEventListener('click', async (e) => {
+    const s = e.target.closest('[data-n]');
+    if (s) { n = Math.max(1, Math.min(5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
+    if (!e.target.closest('#ideasGo')) return;
+    const envie = $('#ideasWish').value.trim();
+    bg.remove();
+    const tmp = { id: 'tmp' + Date.now(), type: 'ideas', at: Date.now(), sending: true };
+    myUploads.unshift(tmp);
+    render();
+    try {
+      const out = await send({ action: 'requestIdeas', nombre: n, envie, par: profile });
+      tmp.id = out.id; delete tmp.sending;
+      store.set('myUploads', myUploads);
+      toast(`Demande envoyée · prêtes à ${IDEAS_TIMES}`);
+    } catch {
+      myUploads = myUploads.filter((u) => u !== tmp);
+      toast('Pas de réseau : réessaie');
+    }
+    render();
+  });
+}
+
+function openRecipeForm(r = null) {
+  if (needSync()) return;
+  const henda = norm(profile) === 'henda';
+  const v = (k) => esc(r ? r[k] : '');
+  const opts = (list, val) => list.map((o) => `<option${o === val ? ' selected' : ''}>${o}</option>`).join('');
+  const sansPorc = henda || !r || yes(r['Sans porc']) || !r['Sans porc'];
+  const shared = !r || yes(r['Partagée']);
+  const bg = openSheet(`<h2>${r ? 'Modifier la recette' : 'Nouvelle recette'}</h2>
+    <form id="recipeForm">
+      <label class="field"><span>Nom</span><input name="nom" required value="${v('Nom')}" placeholder="Ex. Poulet curry coco" autocomplete="off"></label>
+      <div class="field-row">
+        <label class="field"><span>Personnes</span><input name="portions" inputmode="numeric" value="${v('Portions') || 3}"></label>
+        <label class="field"><span>Type</span><input name="type" list="recipeTypes" value="${v('Type')}" placeholder="Plat, dessert…"></label>
+      </div>
+      <datalist id="recipeTypes"><option value="Entrée"><option value="Plat"><option value="Dessert"><option value="Soupe"><option value="Salade"><option value="Goûter"></datalist>
+      <div class="field-row">
+        <label class="field"><span>Préparation (min)</span><input name="prep" inputmode="numeric" value="${v('Préparation (min)')}" placeholder="15"></label>
+        <label class="field"><span>Cuisson (min)</span><input name="cook" inputmode="numeric" value="${v('Cuisson (min)')}" placeholder="20"></label>
+      </div>
+      <div class="field-row">
+        <label class="field"><span>Difficulté</span><select name="diff">${opts(['Facile', 'Moyen', 'Difficile'], r?.['Difficulté'] || 'Facile')}</select></label>
+        <label class="field"><span>Coût</span><select name="cout">${opts(['Bon marché', 'Moyen', 'Cher'], r?.['Coût'] || 'Bon marché')}</select></label>
+      </div>
+      <label class="field"><span>Ingrédients (un par ligne, quantité à la fin)</span><textarea name="ings" rows="6" placeholder="Blancs de poulet 500 g&#10;Lait de coco 40 cl&#10;Oignon 1">${esc(r ? split(r['Ingrédients']).join('\n') : '')}</textarea></label>
+      <label class="field"><span>Étapes (une par ligne)</span><textarea name="steps" rows="6" placeholder="Couper le poulet en dés&#10;Faire revenir l’oignon…">${esc(r ? split(r['Étapes']).join('\n') : '')}</textarea></label>
+      <label class="field"><span>Photo (lien, facultatif)</span><input name="image" type="url" value="${v('Image')}" placeholder="https://…" autocomplete="off"></label>
+      <div class="card" style="margin-bottom:14px">
+        <div class="toggle-row" data-toggle="porc" ${henda ? 'style="opacity:.6"' : ''}><span>Sans porc${henda ? ' (toujours, pour Henda)' : ''}</span><span class="switch${sansPorc ? ' on' : ''}" id="swPorc"></span></div>
+        <div class="toggle-row" data-toggle="share" style="border-top:1px solid var(--line)"><span>Partagée avec l’autre profil</span><span class="switch${shared ? ' on' : ''}" id="swShare"></span></div>
+      </div>
+      <button class="btn" type="submit">Enregistrer</button>
+      ${r ? '<button class="btn ghost" type="button" id="delRecipe" style="margin-top:10px;color:var(--danger);background:var(--danger-soft)">Supprimer la recette</button>' : ''}
+    </form>`);
+  if (!r) setTimeout(() => bg.querySelector('[name=nom]').focus(), 250);
+  bg.addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-toggle]');
+    if (t) {
+      if (t.dataset.toggle === 'porc' && henda) return;
+      $(t.dataset.toggle === 'porc' ? '#swPorc' : '#swShare').classList.toggle('on');
+      return;
+    }
+    const del = e.target.closest('#delRecipe');
+    if (!del) return;
+    // Deux appuis pour supprimer
+    if (!del.dataset.sure) { del.dataset.sure = '1'; del.textContent = 'Confirmer la suppression'; return; }
+    bg.remove();
+    data.Recettes = data.Recettes.filter((x) => x !== r);
+    store.set('data', data);
+    if (current) history.length > 1 && location.hash ? history.back() : closeRecipe();
+    render();
+    try { await send({ action: 'deleteRecipe', nom: r['Nom'] }); toast('Recette supprimée'); }
+    catch { toast('Pas de réseau : recette non supprimée'); refresh(); }
+  });
+  bg.querySelector('#recipeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const lines = (s) => s.split('\n').map((x) => x.trim().replace(/;/g, ',')).filter(Boolean).join('; ');
+    const prep = f.prep.value.trim(), cook = f.cook.value.trim();
+    const rec = {
+      'Nom': f.nom.value.trim(), 'Portions': f.portions.value.trim() || '3',
+      'Temps (min)': prep || cook ? String((num(prep) || 0) + (num(cook) || 0)) : '',
+      'Ingrédients': lines(f.ings.value), 'Étapes': lines(f.steps.value),
+      'Sans porc': henda || $('#swPorc').classList.contains('on') ? 'Oui' : 'Non',
+      'Profil': r?.['Profil'] || profile, 'Partagée': $('#swShare').classList.contains('on') ? 'Oui' : 'Non',
+      'Type': f.type.value.trim(), 'Difficulté': f.diff.value, 'Coût': f.cout.value,
+      'Préparation (min)': prep, 'Cuisson (min)': cook, 'Image': f.image.value.trim(),
+    };
+    if (!rec['Nom']) return;
+    bg.remove();
+    const originalName = r ? r['Nom'] : '';
+    const today = new Date().toISOString().slice(0, 10);
+    if (r) Object.assign(r, rec); else data.Recettes.push({ ...rec, 'Date': today });
+    store.set('data', data);
+    if (current) { current.r = r || current.r; history.replaceState(null, '', '#recette/' + recipeId(current.r)); }
+    render();
+    try {
+      await send({ action: 'saveRecipe', original: originalName, recette: rec });
+      toast(r ? 'Recette modifiée' : 'Recette ajoutée');
+      refresh();
+    } catch { toast('Pas de réseau : recette non enregistrée'); refresh(); }
+  });
 }
 
 // Ingrédient : quantité (mise à l'échelle) + nom. "Blancs de poulet 500 g", "500 g de farine", "Courgettes 2"
@@ -1258,13 +1416,15 @@ function fmtQty(q, unit) {
   if (/^(g|ml)$/i.test(unit) && v >= 100) v = Math.round(v / 5) * 5;
   return `${String(v).replace('.', ',')}${unit ? ' ' + unit : ''}`;
 }
-function inStock(name) {
-  const words = norm(name).split(/[^a-z]+/).filter((w) => w.length > 3).map((w) => w.replace(/s$/, ''));
+// Un ingrédient correspond à un produit si ses deux premiers mots significatifs (sans pluriel) y figurent
+function matchesProduct(ingredient, product) {
+  const words = norm(ingredient).split(/[^a-z]+/).filter((w) => w.length > 3).map((w) => w.replace(/s$/, ''));
   if (!words.length) return false;
-  return data.Stock.some((s) => {
-    const sn = norm(s['Produit']);
-    return words.slice(0, 2).every((w) => sn.includes(w)) && num(s['Quantité']) !== 0;
-  });
+  const p = norm(product);
+  return words.slice(0, 2).every((w) => p.includes(w));
+}
+function inStock(name) {
+  return data.Stock.some((s) => matchesProduct(name, s['Produit']) && num(s['Quantité']) !== 0);
 }
 
 let current = null; // { r, servings }
@@ -1301,6 +1461,7 @@ function renderRecipe() {
       <div class="rhead">
         <h1>${esc(r['Nom'])}</h1>
         <div class="by">${esc(author)}${yes(r['Sans porc']) ? ' · Sans porc' : r['Sans porc'] ? ' · <span class="badge warn">Contient du porc</span>' : ''}</div>
+        ${!r['Profil'] || norm(r['Profil']) === norm(profile) ? '<button class="edit-btn" data-editrecipe>Modifier</button>' : ''}
         <div class="stats">
           <div class="stat"><div class="ico">⏱</div><div class="v">${esc(fmtMin(total) || '–')}</div><div class="k">Total</div></div>
           <div class="stat"><div class="ico">👩‍🍳</div><div class="v">${esc(r['Difficulté'] || 'Facile')}</div><div class="k">Difficulté</div></div>
@@ -1333,6 +1494,7 @@ function renderRecipe() {
 
 $('#recipeView').addEventListener('click', async (e) => {
   if (e.target.closest('[data-close]')) { history.length > 1 && location.hash ? history.back() : closeRecipe(); return; }
+  if (e.target.closest('[data-editrecipe]')) { openRecipeForm(current.r); return; }
   const s = e.target.closest('[data-serv]');
   if (s) { current.servings = Math.max(1, Math.min(20, current.servings + +s.dataset.serv)); renderRecipe(); return; }
   if (e.target.closest('[data-wake]')) {
@@ -1359,7 +1521,7 @@ window.addEventListener('popstate', () => {
 const VIEWS = {
   stock: ['Stock', viewStock, [['Ajouter au stock', ICON_PLUS, openAddStock], ['Envoyer une photo', ICON_CAMERA, openPhotoSheet]]],
   courses: ['Courses', viewCourses, [['Ajouter un produit', ICON_PLUS, openAddCourse]]],
-  recettes: ['Recettes', viewRecettes, []],
+  recettes: ['Recettes', viewRecettes, [['Nouvelle recette', ICON_PLUS, () => openRecipeForm()]]],
 };
 
 function render() {
@@ -1422,6 +1584,9 @@ document.addEventListener('click', (e) => {
     courses().filter(isBought).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
     render(); return;
   }
+  if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
+  const rs = e.target.closest('[data-rsort]');
+  if (rs) { recipeSort = rs.dataset.rsort; store.set('recipeSort', recipeSort); render(); return; }
   const sl = e.target.closest('[data-sloc]');
   if (sl) { stockLoc = sl.dataset.sloc; store.set('stockLoc', stockLoc); render(); return; }
   const col = e.target.closest('[data-collapse]');
