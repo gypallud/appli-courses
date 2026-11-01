@@ -3,7 +3,7 @@
  * À coller dans Extensions > Apps Script du Google Sheets « Appli Courses – Base de données ».
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
- * Actions de l'appli : setStatus, addCourses, setEmplacements, upload.
+ * Actions de l'appli : setStatus, addCourses, removeStock, setEmplacements, upload.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
@@ -74,6 +74,21 @@ const ACTIONS = {
         }
       });
       return { added };
+    },
+  },
+
+  removeStock: {
+    run(b) {
+      const t = table('Stock');
+      let removed = 0;
+      (b.items || []).forEach((it) => {
+        const r = t.findWhere((row) => same(row['Produit'], it.produit) && same(row['Emplacement'], it.emplacement));
+        if (r >= 0) {
+          t.remove(r);
+          removed++;
+        }
+      });
+      return { removed };
     },
   },
 
