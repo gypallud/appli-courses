@@ -51,7 +51,7 @@ async function hasPending() {
 
 function prompt(t, ctx, file) {
   const stockLoc = ctx.stock.filter((s) => String(s['Emplacement']).toLowerCase() === String(t['Emplacement']).toLowerCase());
-  const aAcheter = ctx.courses.filter((c) => c['Statut'] !== 'Acheté').map((c) => c['Produit']);
+  const aAcheter = ctx.courses.map((c) => c['Produit']);
   const common = `Tu mets à jour l'appli de courses d'un foyer français de 3 adultes.
 Lis l'image ${file} (outil Read), puis réponds UNIQUEMENT avec un objet JSON, sans texte autour, sans bloc de code.
 
@@ -68,7 +68,7 @@ Règles :
   if (t['Type'] === 'Ticket de caisse') {
     return common + `
 C'est un TICKET DE CAISSE. Ajoute chaque article acheté au stock dans l'emplacement le plus logique.
-Produits de la liste de courses encore à acheter : ${JSON.stringify(aAcheter)}. Mets dans "achetes" ceux qui figurent sur le ticket (nom exact de la liste).
+Produits de la liste de courses : ${JSON.stringify(aAcheter)}. Mets dans "achetes" ceux qui figurent sur le ticket (nom exact de la liste).
 
 Format :
 {"mode":"ajout","magasin":"…","date":"AAAA-MM-JJ","stock":[{"produit":"…","categorie":"…","quantite":"…","unite":"…","emplacement":"…","dlc":""}],"historique":[{"produit":"…","quantite":"…","prix":"0.00"}],"achetes":["…"],"resume":"12 produits ajoutés au stock"}`;
@@ -155,7 +155,7 @@ async function processIdeas(t, ctx) {
 }
 
 // ---- Panier Leclerc Drive ----
-// 1er passage : cherche des articles pour chaque produit à acheter (onglet Drive) ; on choisit dans l'appli.
+// 1er passage : cherche des articles pour chaque produit coché au moment de la demande (onglet Drive) ; on choisit dans l'appli.
 // Passage suivant : ajoute les articles choisis au panier. La commande se termine à la main sur Leclerc Drive.
 const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/œ/g, 'oe').trim();
 const PORK = /\b(porc|jambon|lardons?|bacon|saucissons?|chorizo|rillettes?|andouill|boudin|coppa|pancetta|prosciutto|serrano|mortadelle|rosette|knacks?|cervelas|chipolatas?|saucisses?|pate de campagne|museau|travers|echine|filet mignon)\b/;
@@ -188,10 +188,11 @@ function lastPrice(ctx, produit) {
   return prix ? (q && q > 1 && Number.isInteger(q) ? prix / q : prix) : null;
 }
 
-async function driveSearch(ctx, drive) {
+async function driveSearch(ctx, drive, produits) {
   const memo = new Map((ctx.choixDrive || []).map((m) => [normTxt(m['Produit']), m]));
   const items = [];
-  for (const c of ctx.courses.filter((c) => c['Produit'] && c['Statut'] !== 'Acheté')) {
+  const wanted = new Set(produits.map(normTxt));
+  for (const c of ctx.courses.filter((c) => c['Produit'] && wanted.has(normTxt(c['Produit'])))) {
     const porkOk = isPork(c['Produit']); // du porc seulement s'il est demandé explicitement dans la liste
     let found = [];
     try { found = parseProducts(await drive.call('search_product', { query: c['Produit'] })); }
@@ -247,7 +248,11 @@ async function processDrive(t, ctx) {
   const drive = await openDrive();
   try {
     if (t['Statut'] === 'Validé') return await driveFill(t, ctx, drive);
-    const { items, resume } = await driveSearch(ctx, drive);
+    let produits = [];
+    try { produits = JSON.parse(t['Fichier'] || '{}').produits || []; } catch {}
+    // Demande d'une ancienne version de l'appli : les produits cochés
+    if (!produits.length) produits = ctx.courses.filter((c) => /^(S[ée]lectionn|Achet)/.test(c['Statut'])).map((c) => c['Produit']);
+    const { items, resume } = await driveSearch(ctx, drive, produits);
     if (TRIAL) { console.log(JSON.stringify(items, null, 2)); return 'essai : rien enregistré'; }
     await call('driveProposals', { id: t['ID'], items, resume });
     return resume;
@@ -311,7 +316,7 @@ async function tick() {
 // --once : un seul passage puis arrêt (lancé à heures fixes par le Planificateur de tâches Windows)
 if (TRIAL && !RECIPES_MODE) {
   call('pending')
-    .then((ctx) => processDrive({ 'ID': 'essai', 'Statut': 'En attente' }, { ...ctx, courses: ctx.courses.filter((c) => c['Statut'] !== 'Acheté').slice(0, 4) }))
+    .then((ctx) => processDrive({ 'ID': 'essai', 'Statut': 'En attente', 'Fichier': JSON.stringify({ produits: ctx.courses.slice(0, 4).map((c) => c['Produit']) }) }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (TRIAL) {
   call('pending')

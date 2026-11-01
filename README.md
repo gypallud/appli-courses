@@ -32,14 +32,14 @@ PC (tâche planifiée à 12 h et 20 h) <── voit « En attente »
 Téléphone <── l'appli relit le Sheets (toutes les minutes quand elle est ouverte)
 ```
 
-- **Ticket de caisse** : produits ajoutés au stock, prix dans Historique, produits de la liste cochés « Acheté ».
+- **Ticket de caisse** : produits ajoutés au stock, prix dans Historique, produits achetés retirés de la liste de courses.
 - **Photo du stock** (on choisit le stock) : inventaire des produits visibles dans ce stock.
 - Les photos sont traitées à 12 h et 20 h. Si le PC est éteint à ce moment-là, dès qu'il est rallumé.
 
 ### Panier Leclerc Drive (Montpellier Pierres Vives)
 
-1. Courses > **Préparer le panier Drive**.
-2. Au prochain passage du PC, il cherche 5 articles Leclerc pour chaque produit à acheter (sans porc, sauf si le produit de la liste en est).
+1. Courses : cocher les produits à acheter, puis **Préparer le panier Drive** (le bouton apparaît dès qu'un produit est coché).
+2. Au prochain passage du PC, il cherche 5 articles Leclerc pour chaque produit coché (sans porc, sauf si le produit de la liste en est).
    Ils arrivent dans l'onglet **Drive** du Sheets.
 3. Dans l'appli, **Choisir les articles** : un article et un nombre par produit, ou « Ne pas prendre ».
    L'article choisi est retenu (onglet **Choix Drive**) et proposé d'office la fois suivante (« Habituel »).
@@ -59,7 +59,7 @@ Pour tester la recherche sans rien enregistrer : `node worker/worker.js --essai`
 ## Onglets du Sheets
 
 - **Stock** : alerte si la DLC est dans moins de 3 jours. Dates `2026-11-08` ou `08/11/2026`.
-- **Courses** : `Statut` = `À acheter` / `Acheté`. `Priorité` = `Haute` affiche un point rouge.
+- **Courses** : `Statut` = `À acheter` ou `Sélectionné` (case cochée : à prendre aux prochaines courses, panier Drive compris). Les produits d'un ticket de caisse quittent la liste. `Priorité` = `Haute` affiche un point rouge.
 - **Recettes** : `Ingrédients` et `Étapes` séparés par `;` (ex. `Blancs de poulet 500 g; Courgettes 2`).
   Colonnes facultatives : `Type`, `Difficulté`, `Coût`, `Préparation (min)`, `Cuisson (min)`, `Image` (URL d'une photo).
   Le profil Henda n'affiche jamais une recette marquée `Sans porc = Non`.

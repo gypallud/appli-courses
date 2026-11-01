@@ -162,15 +162,15 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .box svg { opacity: 0; transition: opacity 0.15s; }
 .check-row.done .box { background: var(--accent); border-color: var(--accent); }
 .check-row.done .box svg { opacity: 1; }
-.check-row.done .name { text-decoration: line-through; color: var(--muted); }
-.check-row.done .qty { opacity: 0.6; }
+.check-row.done { background: var(--accent-soft); }
+.check-row.done .name { font-weight: 600; }
 .prio { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none; }
 .qty-btn {
   color: var(--text); font-size: 14px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
   background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; min-width: 44px;
 }
 .qty-btn:active { background: var(--accent-soft); }
-.check-row.done .qty-btn { opacity: 0.55; }
+.check-row.done .qty-btn { background: var(--surface); }
 .qty-stepper { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .qty-stepper button {
   width: 52px; height: 52px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
@@ -659,9 +659,11 @@ function selectHTML(name, list, value, emptyLabel) {
 }
 
 // ---- Courses ----
-const isBought = (item) => {
+// Case cochée = produit choisi pour les prochaines courses (panier Drive). « Acheté » : ancien nom du même état.
+const selectedStatus = (s) => /^(selectionne|achete)/.test(norm(s));
+const isSelected = (item) => {
   const p = pending[norm(item['Produit'])];
-  return p ? p.bought : norm(item['Statut']).startsWith('achete');
+  return p ? p.bought : selectedStatus(item['Statut']);
 };
 
 function courses() {
@@ -679,7 +681,7 @@ function reconcile() {
   const now = Date.now();
   for (const [k, p] of Object.entries(pending)) {
     const item = data.Courses.find((c) => norm(c['Produit']) === k);
-    const sheetBought = item && norm(item['Statut']).startsWith('achete');
+    const sheetBought = item && selectedStatus(item['Statut']);
     // Sans synchro, la coche reste locale. Avec synchro, on l'oublie dès que le tableur est d'accord (ou après 10 min).
     if (!item || (SYNC_URL && (sheetBought === p.bought || now - p.at > 600000))) delete pending[k];
   }
@@ -707,14 +709,14 @@ function reconcile() {
 async function toggleItem(name) {
   const item = courses().find((c) => c['Produit'] === name);
   if (!item) return;
-  const bought = !isBought(item);
+  const bought = !isSelected(item);
   pending[norm(name)] = { bought, at: Date.now() };
   store.set('pending', pending);
   render();
   if (navigator.vibrate) navigator.vibrate(8);
   if (!SYNC_URL) return;
   try {
-    await send({ action: 'setStatus', produit: name, statut: bought ? 'Acheté' : 'À acheter', par: profile });
+    await send({ action: 'setStatus', produit: name, statut: bought ? 'Sélectionné' : 'À acheter', par: profile });
   } catch {
     toast('Pas de réseau : la coche sera renvoyée plus tard');
   }
@@ -725,7 +727,7 @@ async function resendPending() {
   for (const [k, p] of Object.entries(pending)) {
     const item = data.Courses.find((c) => norm(c['Produit']) === k);
     if (!item) continue;
-    try { await send({ action: 'setStatus', produit: item['Produit'], statut: p.bought ? 'Acheté' : 'À acheter', par: profile }); }
+    try { await send({ action: 'setStatus', produit: item['Produit'], statut: p.bought ? 'Sélectionné' : 'À acheter', par: profile }); }
     catch { return; }
   }
 }
@@ -1373,8 +1375,9 @@ function setDriveLocal(id, statut) {
 function viewDrive() {
   const t = driveTicket();
   const s = t?.statut;
-  const ask = (todo) => `<button class="ideas-btn drive-btn${todo ? ' todo' : ''}" data-drive="${todo ? 'choose' : 'request'}">
-      <span class="emoji">🛒</span><span class="main"><b>${todo ? 'Choisir les articles Leclerc' : 'Préparer le panier Drive'}</b><small>${esc(todo ? t.resume || 'Les propositions sont prêtes' : 'Le PC cherche les articles, tu choisis, il remplit le panier')}</small></span>
+  const sel = courses().filter(isSelected).length;
+  const ask = (todo) => !todo && !sel ? '' : `<button class="ideas-btn drive-btn${todo ? ' todo' : ''}" data-drive="${todo ? 'choose' : 'request'}">
+      <span class="emoji">🛒</span><span class="main"><b>${todo ? 'Choisir les articles Leclerc' : `Préparer le panier Drive · ${sel} produit${sel > 1 ? 's' : ''}`}</b><small>${esc(todo ? t.resume || 'Les propositions sont prêtes' : 'Avec les produits cochés : le PC cherche les articles, tu choisis, il remplit le panier')}</small></span>
     </button>`;
   const row = (icon, title, meta, extra = '') => `<div class="drive-row">${icon}<div class="main"><div class="name">${esc(title)}</div><div class="meta">${esc(meta)}</div></div>${extra}</div>`;
   if (s === 'En attente') return row('<span class="badge neutral">⏳</span>', 'Panier Drive', `Recherche des articles au prochain passage du PC (${ANALYSIS_TIMES})`, '<button class="link" data-drive="cancel">Annuler</button>');
@@ -1387,9 +1390,10 @@ function viewDrive() {
 
 async function requestDrive() {
   if (needSync()) return;
-  if (!courses().some((c) => !isBought(c))) { toast('Rien à acheter dans la liste'); return; }
+  const produits = courses().filter(isSelected).map((c) => c['Produit']);
+  if (!produits.length) { toast('Coche les produits à acheter'); return; }
   try {
-    const out = await send({ action: 'requestDrive', par: profile });
+    const out = await send({ action: 'requestDrive', par: profile, produits });
     setDriveLocal(out.id, 'En attente');
     toast('Demande envoyée · articles proposés au prochain passage');
   } catch { toast('Pas de réseau : réessaie'); }
@@ -1451,24 +1455,22 @@ function openDriveSheet() {
 function viewCourses() {
   const items = courses();
   if (!items.length) return (SYNC_URL ? viewDrive() : '') + empty('Liste vide', 'Rien à acheter pour le moment.');
-  const done = items.filter(isBought).length;
+  const done = items.filter(isSelected).length;
   let html = SYNC_URL ? viewDrive() : '';
-  html += `<p class="sub">${items.length - done === 0 ? 'Tout est dans le panier' : `${items.length - done} à acheter · ${done} dans le panier`}</p>`;
-  html += `<div class="progress"><div style="width:${Math.round((done / items.length) * 100)}%"></div></div>`;
+  html += `<p class="sub">${items.length} produit${items.length > 1 ? 's' : ''} · ${done ? `${done} sélectionné${done > 1 ? 's' : ''}` : 'coche ceux à acheter'}</p>`;
   const prioRank = (p) => ({ haute: 0, moyenne: 1, basse: 2 }[norm(p)] ?? 1);
   const groups = groupBy(items, 'Catégorie');
-  // Catégories avec encore des choses à acheter en premier
-  groups.sort((a, b) => (a[1].every(isBought) - b[1].every(isBought)) || a[0].localeCompare(b[0], 'fr'));
+  groups.sort((a, b) => a[0].localeCompare(b[0], 'fr'));
   for (const [cat, list] of groups) {
-    list.sort((a, b) => isBought(a) - isBought(b) || prioRank(a['Priorité']) - prioRank(b['Priorité']) || a['Produit'].localeCompare(b['Produit'], 'fr'));
-    html += `<div class="group"><h2>${esc(cat)}<span>${list.filter((i) => !isBought(i)).length || '✓'}</span></h2><div class="card">`;
+    list.sort((a, b) => prioRank(a['Priorité']) - prioRank(b['Priorité']) || a['Produit'].localeCompare(b['Produit'], 'fr'));
+    html += `<div class="group"><h2>${esc(cat)}<span>${list.filter(isSelected).length ? `${list.filter(isSelected).length}/${list.length}` : list.length}</span></h2><div class="card">`;
     for (const c of list) {
-      const high = norm(c['Priorité']) === 'haute' && !isBought(c);
+      const high = norm(c['Priorité']) === 'haute';
       const by = c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
       const key = norm(c['Produit']);
       html += `<div class="swipe${markedSets.courses.has(key) ? ' marked' : ''}" data-kind="courses" data-key="${esc(key)}">
         <div class="swipe-bg"><span class="r">Supprimer ${ICON_TRASH}</span></div>
-        <div class="row check-row${isBought(c) ? ' done' : ''}" role="checkbox" aria-checked="${isBought(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
+        <div class="row check-row${isSelected(c) ? ' done' : ''}" role="checkbox" aria-checked="${isSelected(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
         <span class="box">${ICON_CHECK}</span>
         <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}</div>
         ${high ? '<span class="prio" title="Prioritaire"></span>' : ''}
@@ -1476,7 +1478,7 @@ function viewCourses() {
     }
     html += '</div></div>';
   }
-  if (done) html += `<button class="btn ghost" data-clearbought style="margin-bottom:20px">Retirer ${done === 1 ? 'le produit acheté' : `les ${done} produits achetés`}</button>`;
+  if (done) html += `<button class="btn ghost" data-clearbought style="margin-bottom:20px">Retirer de la liste ${done === 1 ? 'le produit sélectionné' : `les ${done} produits sélectionnés`}</button>`;
   return html;
 }
 
@@ -1899,7 +1901,7 @@ function render() {
   }
   updateActionBar();
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  const left = courses().filter((c) => !isBought(c)).length;
+  const left = courses().filter(isSelected).length;
   $('#coursesCount').hidden = !left;
   $('#coursesCount').textContent = left;
   if (current) renderRecipe();
@@ -1955,7 +1957,7 @@ document.addEventListener('click', (e) => {
   const c = e.target.closest('[data-item]');
   if (c) { toggleItem(c.dataset.item); return; }
   if (e.target.closest('[data-clearbought]')) {
-    courses().filter(isBought).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
+    courses().filter(isSelected).forEach((x) => markedSets.courses.add(norm(x['Produit'])));
     render(); return;
   }
   if (e.target.closest('[data-repair]')) { repair(); return; }

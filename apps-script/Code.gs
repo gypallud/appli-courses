@@ -61,7 +61,8 @@ function doGet() {
 const ACTIONS = {
   setStatus: {
     run(b) {
-      if (['À acheter', 'Acheté'].indexOf(b.statut) === -1) throw new Error('statut invalide');
+      // Sélectionné = coché dans l'appli, à prendre aux prochaines courses (Acheté : ancien nom)
+      if (['À acheter', 'Sélectionné', 'Acheté'].indexOf(b.statut) === -1) throw new Error('statut invalide');
       const t = table('Courses');
       const r = t.find('Produit', b.produit);
       if (r < 0) throw new Error('produit introuvable');
@@ -275,7 +276,8 @@ const ACTIONS = {
       const id = Utilities.getUuid().slice(0, 8);
       table('Tickets').append({
         'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
-        'Type': DRIVE, 'Emplacement': '', 'Envoyé par': b.par || '', 'Fichier': '', 'Statut': 'En attente', 'Résumé': '',
+        'Type': DRIVE, 'Emplacement': '', 'Envoyé par': b.par || '',
+        'Fichier': JSON.stringify({ produits: (b.produits || []).map(String).slice(0, 100) }), 'Statut': 'En attente', 'Résumé': '',
       });
       return { id };
     },
@@ -421,10 +423,11 @@ const ACTIONS = {
       (res.historique || []).forEach((it) => {
         hist.append({ 'Date': res.date || today, 'Magasin': res.magasin || '', 'Produit': it.produit, 'Quantité': it.quantite || '', 'Prix': it.prix || '' });
       });
+      // Produits du ticket : achetés, ils quittent la liste de courses
       const courses = table('Courses');
       (res.achetes || []).forEach((p) => {
         const r = courses.find('Produit', p);
-        if (r >= 0) courses.set(r, 'Statut', 'Acheté');
+        if (r >= 0) courses.remove(r);
       });
       setTicket(b.id, 'Traité', res.resume || '');
       return {};
