@@ -195,6 +195,27 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 
 /* Recettes : liste */
 .recipes { display: grid; gap: 14px; }
+.rrow { display: flex; align-items: center; gap: 12px; padding: 10px 6px 10px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+.rrow:first-child { border-top: 0; }
+.rrow:active { background: var(--bg); }
+.rrow .thumb {
+  width: 56px; height: 56px; border-radius: 14px; background: var(--accent-soft); flex: none; overflow: hidden;
+  display: grid; place-items: center; font-size: 28px;
+}
+.rrow .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rrow .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rrow .title { font-weight: 700; line-height: 1.3; }
+.rrow .meta { color: var(--muted); font-size: 13px; }
+.rrow .fit { align-self: flex-start; margin-top: 4px; }
+.star { width: 44px; height: 44px; flex: none; font-size: 24px; color: var(--muted); display: grid; place-items: center; border-radius: 50%; }
+.star.on { color: #e3a008; }
+.star:active { background: var(--line); }
+.chip.fav { color: #b07a00; }
+.chip.fav.on { background: #e3a008; border-color: #e3a008; color: #fff; }
+.sort-row { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; margin: -2px 2px 12px; }
+.sort-row button { padding: 6px 10px; border-radius: 999px; font-weight: 600; }
+.sort-row button.on { background: var(--line); color: var(--text); }
+.rdetail.no-hero .rhead { margin-top: calc(66px + env(safe-area-inset-top)); }
 .rcard {
   display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line);
   border-radius: 18px; overflow: hidden;
@@ -217,7 +238,7 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 
 /* Recettes : fiche */
 #recipeView { position: fixed; inset: 0; z-index: 15; background: var(--bg); overflow-y: auto; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
-#recipeView .hero { aspect-ratio: 4 / 3; max-height: 46vh; width: 100%; }
+#recipeView .hero { aspect-ratio: 16 / 9; max-height: 34vh; width: 100%; }
 #recipeView .hero .emoji { font-size: 96px; }
 .back {
   position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 12px; z-index: 16;
@@ -292,19 +313,28 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .chip.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 .chip.warn.on { background: var(--warn); color: #fff; }
 .hint-swipe { color: var(--muted); font-size: 12px; margin: 0 4px 14px; display: flex; justify-content: space-between; gap: 8px; }
-.group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
-.group-toggle svg { transition: transform 0.2s; }
-.group-toggle.closed svg { transform: rotate(-90deg); }
-.group-toggle .cnt { margin-left: auto; }
-.subhead {
-  padding: 10px 14px 6px; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.04em;
-  text-transform: uppercase; background: var(--surface); border-top: 1px solid var(--line);
-  display: flex; justify-content: space-between;
+/* En-têtes repliables : grandes zones à toucher */
+.list-tools { display: flex; justify-content: flex-end; margin: -4px 0 6px; }
+.list-tools button { font-size: 13px; font-weight: 600; color: var(--accent); padding: 8px 4px; }
+.loc-head, .cat-head { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; }
+.loc-head { min-height: 48px; padding: 6px 4px; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.cat-head {
+  min-height: 48px; padding: 10px 14px; font-size: 15px; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft); border-top: 1px solid var(--line);
 }
-.subhead span { color: var(--muted); font-weight: 500; }
-.card > .subhead:first-child { border-top: 0; }
+.card > .cat-head:first-child { border-top: 0; }
+.loc-head svg, .cat-head svg { transition: transform 0.2s; flex: none; }
+.loc-head.closed svg, .cat-head.closed svg { transform: rotate(-90deg); }
+.loc-head .lbl, .cat-head .lbl { flex: 1; min-width: 0; }
+.loc-head .cnt, .cat-head .cnt {
+  font-size: 13px; font-weight: 700; color: var(--muted); background: var(--line); border-radius: 999px; padding: 2px 10px;
+}
+.cat-head .cnt { background: var(--surface); }
+.loc-head:active, .cat-head:active { opacity: 0.7; }
+.dot-warn { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
 .swipe { position: relative; touch-action: pan-y; border-top: 1px solid var(--line); overflow: hidden; }
-.card > .swipe:first-child, .subhead + .swipe { border-top: 0; }
+.card > .swipe:first-child, .cat-head + .swipe { border-top: 0; }
+.swipe .row { cursor: pointer; }
 .swipe .row { border-top: 0; background: var(--surface); position: relative; z-index: 1; transition: transform 0.2s ease, background 0.2s; }
 .swipe.dragging .row { transition: none; }
 .swipe-bg {
@@ -857,6 +887,85 @@ function openAddStock() {
   });
 }
 
+const isoDate = (d) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '');
+
+// Fiche d'un produit du stock : nom, quantité, unité, stock, catégorie, date limite
+function openStockEdit(key) {
+  if (needSync()) return;
+  const s = stockItems().find((x) => x._key === key);
+  if (!s) return;
+  const locs = locations();
+  let loc = s['Emplacement'];
+  const cats = [...new Set(stockItems().map((x) => x['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const bg = openSheet(`<h2>${esc(s['Produit'])}</h2>
+    <form id="stockEdit">
+      <label class="field"><span>Nom</span><input name="produit" value="${esc(s['Produit'])}" required autocomplete="off"></label>
+      <span class="field"><span>Quantité</span></span>
+      <div class="qty-stepper">
+        <button type="button" data-step="-1" aria-label="Moins">−</button>
+        <input name="quantite" inputmode="decimal" value="${esc(String(s['Quantité']).replace('.', ','))}" autocomplete="off">
+        <button type="button" data-step="1" aria-label="Plus">+</button>
+      </div>
+      <div class="field-row">
+        <label class="field"><span>Unité</span><input name="unite" value="${esc(s['Unité'])}" placeholder="pots, kg, L…" autocomplete="off"></label>
+        <label class="field"><span>Date limite</span><input name="dlc" type="date" value="${isoDate(s._dlc)}"></label>
+      </div>
+      <span class="field"><span>Stock</span></span>
+      <div class="chips">${[...new Set([...locs, loc])].map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-eloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
+      <label class="field"><span>Catégorie</span><input name="categorie" list="editCats" value="${esc(s['Catégorie'])}" autocomplete="off"></label>
+      <datalist id="editCats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <button class="btn" type="submit">Enregistrer</button>
+      <div class="field-row" style="margin-top:10px">
+        <button type="button" class="btn ghost" data-tocourses>${ICON_PLUS.replace(/22/g, '18')} Courses</button>
+        <button type="button" class="btn ghost" data-delstock style="color:var(--danger);background:var(--danger-soft)">${ICON_TRASH} Supprimer</button>
+      </div>
+    </form>`);
+  const f = bg.querySelector('#stockEdit');
+  bg.addEventListener('click', async (e) => {
+    const st = e.target.closest('[data-step]');
+    if (st) {
+      const v = Math.max(0, Math.round(((num(f.quantite.value) ?? 0) + qtyStep(f.unite.value.trim()) * +st.dataset.step) * 100) / 100);
+      f.quantite.value = String(v).replace('.', ',');
+      return;
+    }
+    const l = e.target.closest('[data-eloc]');
+    if (l) { loc = l.dataset.eloc; bg.querySelectorAll('[data-eloc]').forEach((x) => x.classList.toggle('on', x === l)); return; }
+    if (e.target.closest('[data-tocourses]')) { bg.remove(); addFromStock(key); return; }
+    const del = e.target.closest('[data-delstock]');
+    if (del) {
+      if (!del.dataset.sure) { del.dataset.sure = '1'; del.innerHTML = 'Confirmer'; return; }
+      bg.remove();
+      marked.clear(); marked.add(key);
+      confirmDelete();
+    }
+  });
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const item = {
+      produit: f.produit.value.trim(), quantite: f.quantite.value.trim().replace(',', '.'), unite: f.unite.value.trim(),
+      emplacement: loc, categorie: f.categorie.value.trim() || 'Autre', dlc: f.dlc.value,
+    };
+    if (!item.produit) return;
+    bg.remove();
+    // Mise à jour immédiate à l'écran, le tableur suit
+    const row = data.Stock.find((x) => stockKey(x) === key) || localStockAdds.find((x) => stockKey(x) === key);
+    const before = row && { ...row };
+    if (row) Object.assign(row, { 'Produit': item.produit, 'Quantité': item.quantite, 'Unité': item.unite, 'Emplacement': item.emplacement, 'Catégorie': item.categorie, 'DLC': item.dlc });
+    store.set('data', data);
+    render();
+    try {
+      await send({ action: 'updateStock', produit: s['Produit'], emplacement: s['Emplacement'], item });
+      toast('Produit modifié');
+      refresh();
+    } catch {
+      if (row) Object.assign(row, before);
+      store.set('data', data);
+      render();
+      toast('Pas de réseau : produit non modifié');
+    }
+  });
+}
+
 function openAddCourse() {
   if (needSync()) return;
   const cats = [...new Set(data.Courses.map((c) => c['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
@@ -903,6 +1012,8 @@ const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
 const ICON_CAMERA = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const ICON_TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
 const ICON_PLUS ='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+
+const ICON_CHEVRON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 
 function empty(title, text) {
   return `<div class="empty"><strong>${esc(title)}</strong>${esc(text)}</div>`;
@@ -983,19 +1094,25 @@ function stockListHTML(items = stockItems()) {
   else if (stockLoc !== 'all') list = list.filter((s) => norm(s['Emplacement']) === norm(stockLoc));
   if (q) list = list.filter((s) => norm(s['Produit'] + ' ' + s['Catégorie']).includes(q));
   if (!list.length) return empty('Aucun produit', q ? `Rien ne correspond à « ${stockSearch} ».` : 'Ce stock est vide.');
-  let html = '';
-  for (const [loc, inLoc] of groupBy(list, 'Emplacement', locations())) {
-    const closed = !q && stockLoc !== URGENT && collapsed[loc];
-    html += `<div class="group"><h2><button class="group-toggle${closed ? ' closed' : ''}" data-collapse="${esc(loc)}">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-      ${esc(loc)}<span class="cnt">${inLoc.length}</span></button></h2>`;
+  // Pendant une recherche ou sur le filtre « À consommer », tout est déplié
+  const canFold = !q && stockLoc !== URGENT;
+  const groups = groupBy(list, 'Emplacement', locations()).map(([loc, inLoc]) =>
+    [loc, inLoc, groupBy(inLoc, 'Catégorie').sort((a, b) => a[0].localeCompare(b[0], 'fr'))]);
+  const catKeys = groups.flatMap(([loc, , cats]) => cats.map(([cat]) => loc + '|' + cat));
+  let html = canFold ? `<div class="list-tools"><button data-foldall>${catKeys.some((k) => !collapsed[k]) ? 'Tout replier' : 'Tout déplier'}</button></div>` : '';
+  for (const [loc, inLoc, cats] of groups) {
+    const closed = canFold && collapsed[loc];
+    html += `<div class="group"><button class="loc-head${closed ? ' closed' : ''}" data-collapse="${esc(loc)}">
+      ${ICON_CHEVRON}<span class="lbl">${esc(loc)}</span><span class="cnt">${inLoc.length}</span></button>`;
     if (closed) { html += '</div>'; continue; }
     html += '<div class="card">';
-    const cats = groupBy(inLoc, 'Catégorie').sort((a, b) => a[0].localeCompare(b[0], 'fr'));
     for (const [cat, inCat] of cats) {
+      const key = loc + '|' + cat;
+      const catClosed = canFold && collapsed[key];
       inCat.sort((a, b) => (a._days ?? 9999) - (b._days ?? 9999) || a['Produit'].localeCompare(b['Produit'], 'fr'));
-      html += `<div class="subhead">${esc(cat)}<span>${inCat.length}</span></div>`;
-      html += inCat.map(stockRowHTML).join('');
+      const alert = inCat.some(isUrgent) ? '<span class="dot-warn" title="À consommer"></span>' : '';
+      html += `<button class="cat-head${catClosed ? ' closed' : ''}" data-collapse="${esc(key)}">${ICON_CHEVRON}<span class="lbl">${esc(cat)}</span>${alert}<span class="cnt">${inCat.length}</span></button>`;
+      if (!catClosed) html += inCat.map(stockRowHTML).join('');
     }
     html += '</div></div>';
   }
@@ -1168,6 +1285,7 @@ function endSwipe() {
 window.addEventListener('pointerup', endSwipe);
 window.addEventListener('pointercancel', endSwipe);
 $('#view').addEventListener('input', (e) => {
+  if (e.target.id === 'recipeSearch') { recipeSearch = e.target.value; $('#recipeList').innerHTML = recipeListHTML(); return; }
   if (e.target.id !== 'stockSearch') return;
   stockSearch = e.target.value;
   $('#stockList').innerHTML = stockListHTML();
@@ -1255,37 +1373,109 @@ function stockFit(r) {
   return { have, total: ings.length, saves, ratio: ings.length ? have / ings.length : 0 };
 }
 
-function viewRecettes() {
-  const me = norm(profile);
-  const list = visibleRecipes();
-  const mine = list.filter((r) => norm(r['Profil']) === me);
-  const all = list.filter((r) => norm(r['Profil']) === me || yes(r['Partagée']));
-  const fits = new Map(list.map((r) => [r, stockFit(r)]));
-  const shown = (recipeFilter === 'mine' ? mine : all).slice().sort((a, b) => recipeSort === 'stock'
-    ? fits.get(b).saves - fits.get(a).saves || fits.get(b).ratio - fits.get(a).ratio
-    : (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0));
+// Catégories de recettes : la colonne « Catégorie » si elle est remplie, sinon déduite du nom et des ingrédients
+const RECIPE_CATS = [
+  ['Dessert', '🍰', /gateau|dessert|crepe|cake|cookie|mousse au chocolat|compote|clafoutis|tiramisu|muffin|brownie/, true],
+  ['Soupe', '🍲', /soupe|veloute|potage/, true],
+  ['Poisson', '🐟', /poisson|saumon|thon|cabillaud|colin|crevette|merlu|sardine|truite|moule|lieu/],
+  ['Volaille', '🍗', /poulet|dinde|canard|volaille/],
+  ['Viande', '🥩', /boeuf|steak|veau|agneau|hache|kefta|merguez/],
+  ['Pâtes', '🍝', /pate|penne|spaghetti|tagliatelle|lasagne|fusilli|macaroni|gnocchi/, true],
+  ['Salade', '🥗', /salade/, true],
+  ['Végétarien', '🥦', /./],
+];
+function recipeCategory(r) {
+  const set = RECIPE_CATS.find(([c]) => norm(c) === norm(r['Catégorie']));
+  if (set) return set;
+  const name = norm(r['Nom'] + ' ' + r['Type']), all = name + ' ' + norm(r['Ingrédients']);
+  // Dessert, soupe, pâtes et salade se lisent dans le nom ; viande et poisson dans les ingrédients
+  return RECIPE_CATS.find(([, , re, byName]) => re.test(byName ? name : all));
+}
+const isFav = (r) => String(r['Favoris'] || '').split(',').some((p) => norm(p) === norm(profile));
 
+let recipeCat = store.get('recipeCat', 'all');
+let recipeSearch = '';
+
+function viewRecettes() {
   let html = viewUploads('ideas');
   html += `<button class="ideas-btn" data-ideas>
-      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Des recettes sans porc qui utilisent ce qu’il y a à la maison</small></span>
+      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Des recettes sans porc avec ce qu’il y a à la maison</small></span>
     </button>
     <div class="seg" role="tablist">
-    <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
-    <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button></div>
-    <div class="chips">
-      <button class="chip${recipeSort === 'recent' ? ' on' : ''}" data-rsort="recent">Récentes</button>
-      <button class="chip${recipeSort === 'stock' ? ' on' : ''}" data-rsort="stock">🧺 Avec mon stock</button>
+      <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
+      <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button>
+    </div>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="recipeSearch" placeholder="Rechercher une recette ou un ingrédient" value="${esc(recipeSearch)}" autocomplete="off" enterkeyhint="search">
+    </label>
+    <div id="recipeList">${recipeListHTML()}</div>`;
+  return html;
+}
+
+function recipeListHTML() {
+  const me = norm(profile);
+  const base = visibleRecipes().filter((r) => recipeFilter === 'mine' ? norm(r['Profil']) === me : norm(r['Profil']) === me || yes(r['Partagée']));
+  const q = norm(recipeSearch);
+  const searched = q ? base.filter((r) => norm(r['Nom'] + ' ' + r['Ingrédients']).includes(q)) : base;
+  const counts = new Map();
+  searched.forEach((r) => { const c = recipeCategory(r)[0]; counts.set(c, (counts.get(c) || 0) + 1); });
+  const favs = searched.filter(isFav).length;
+  if (recipeCat === 'fav' ? !favs : recipeCat !== 'all' && !counts.has(recipeCat)) recipeCat = 'all';
+  let html = `<div class="chips scroll">
+      <button class="chip${recipeCat === 'all' ? ' on' : ''}" data-rcat="all">Toutes<span class="n">${searched.length}</span></button>
+      ${favs ? `<button class="chip fav${recipeCat === 'fav' ? ' on' : ''}" data-rcat="fav">★ Favoris<span class="n">${favs}</span></button>` : ''}
+      ${RECIPE_CATS.filter(([c]) => counts.has(c)).map(([c, e]) => `<button class="chip${recipeCat === c ? ' on' : ''}" data-rcat="${esc(c)}">${e} ${esc(c)}<span class="n">${counts.get(c)}</span></button>`).join('')}
+    </div>
+    <div class="sort-row">Trier :
+      <button class="${recipeSort === 'recent' ? 'on' : ''}" data-rsort="recent">Récentes</button>
+      <button class="${recipeSort === 'stock' ? 'on' : ''}" data-rsort="stock">Avec mon stock</button>
     </div>`;
-  if (!shown.length) return html + empty('Aucune recette', recipeFilter === 'mine' ? 'Touche + pour ajouter ta première recette.' : 'Aucune recette partagée pour le moment.');
-  html += '<div class="recipes">';
+  let shown = searched;
+  if (recipeCat === 'fav') shown = shown.filter(isFav);
+  else if (recipeCat !== 'all') shown = shown.filter((r) => recipeCategory(r)[0] === recipeCat);
+  const fits = new Map(shown.map((r) => [r, stockFit(r)]));
+  shown = shown.slice().sort((a, b) => isFav(b) - isFav(a) || (recipeSort === 'stock'
+    ? fits.get(b).saves - fits.get(a).saves || fits.get(b).ratio - fits.get(a).ratio
+    : (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0)));
+  if (!shown.length) {
+    return html + empty('Aucune recette', q ? `Rien ne correspond à « ${recipeSearch} ».` : recipeFilter === 'mine' ? 'Touche + pour ajouter ta première recette.' : 'Aucune recette partagée pour le moment.');
+  }
+  html += '<div class="card">';
   for (const r of shown) {
-    const other = norm(r['Profil']) !== me && r['Profil'] ? `<span class="pill">${esc(r['Profil'])}</span>` : '';
+    const [, emoji] = recipeCategory(r);
     const fit = fits.get(r);
-    const fitHTML = fit.total ? `<span class="fit${fit.have === fit.total ? ' full' : ''}">🧺 ${fit.have}/${fit.total} en stock${fit.saves ? ` · ♻ ${fit.saves} à finir` : ''}</span>` : '';
-    html += `<button class="rcard" data-recipe="${recipeId(r)}">${heroHTML(r, other)}
-      <div class="info"><div class="title">${esc(r['Nom'])}</div><div class="facts">${factsHTML(r)}</div>${fitHTML}</div></button>`;
+    const thumb = r['Image'] ? `<img src="${esc(r['Image'])}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${emoji}'))">` : emoji;
+    const meta = [r['Temps (min)'] ? '⏱ ' + fmtMin(r['Temps (min)']) : '', r['Difficulté'], norm(r['Profil']) !== me ? r['Profil'] : ''].filter(Boolean).join(' · ');
+    const fitHTML = fit.total ? `<span class="fit${fit.have === fit.total ? ' full' : ''}">🧺 ${fit.have}/${fit.total}${fit.saves ? ` · ♻ ${fit.saves} à finir` : ''}</span>` : '';
+    html += `<div class="rrow" data-recipe="${recipeId(r)}">
+      <span class="thumb">${thumb}</span>
+      <span class="main"><span class="title">${esc(r['Nom'])}</span><span class="meta">${esc(meta)}</span>${fitHTML}</span>
+      <button class="star${isFav(r) ? ' on' : ''}" data-fav="${recipeId(r)}" aria-label="Favori">${isFav(r) ? '★' : '☆'}</button>
+    </div>`;
   }
   return html + '</div>';
+}
+
+async function toggleFavorite(id) {
+  if (needSync()) return;
+  const r = visibleRecipes().find((x) => recipeId(x) === id);
+  if (!r) return;
+  const on = !isFav(r);
+  const before = r['Favoris'];
+  const others = String(r['Favoris'] || '').split(',').map((p) => p.trim()).filter((p) => p && norm(p) !== norm(profile));
+  r['Favoris'] = (on ? others.concat(profile) : others).join(', ');
+  store.set('data', data);
+  render();
+  if (navigator.vibrate) navigator.vibrate(8);
+  try {
+    await send({ action: 'setFavorite', nom: r['Nom'], profil: profile, on });
+  } catch {
+    r['Favoris'] = before;
+    store.set('data', data);
+    render();
+    toast('Pas de réseau : favori non enregistré');
+  }
 }
 
 function openIdeasSheet() {
@@ -1344,6 +1534,7 @@ function openRecipeForm(r = null) {
       </div>
       <label class="field"><span>Ingrédients (un par ligne, quantité à la fin)</span><textarea name="ings" rows="6" placeholder="Blancs de poulet 500 g&#10;Lait de coco 40 cl&#10;Oignon 1">${esc(r ? split(r['Ingrédients']).join('\n') : '')}</textarea></label>
       <label class="field"><span>Étapes (une par ligne)</span><textarea name="steps" rows="6" placeholder="Couper le poulet en dés&#10;Faire revenir l’oignon…">${esc(r ? split(r['Étapes']).join('\n') : '')}</textarea></label>
+      <label class="field"><span>Catégorie</span><select name="cat"><option value="">Automatique (${esc(r ? recipeCategory({ ...r, 'Catégorie': '' })[0] : 'selon les ingrédients')})</option>${RECIPE_CATS.map(([c, e]) => `<option value="${esc(c)}"${r && norm(r['Catégorie']) === norm(c) ? ' selected' : ''}>${e} ${esc(c)}</option>`).join('')}</select></label>
       <label class="field"><span>Photo (lien, facultatif)</span><input name="image" type="url" value="${v('Image')}" placeholder="https://…" autocomplete="off"></label>
       <div class="card" style="margin-bottom:14px">
         <div class="toggle-row" data-toggle="porc" ${henda ? 'style="opacity:.6"' : ''}><span>Sans porc${henda ? ' (toujours, pour Henda)' : ''}</span><span class="switch${sansPorc ? ' on' : ''}" id="swPorc"></span></div>
@@ -1384,7 +1575,7 @@ function openRecipeForm(r = null) {
       'Sans porc': henda || $('#swPorc').classList.contains('on') ? 'Oui' : 'Non',
       'Profil': r?.['Profil'] || profile, 'Partagée': $('#swShare').classList.contains('on') ? 'Oui' : 'Non',
       'Type': f.type.value.trim(), 'Difficulté': f.diff.value, 'Coût': f.cout.value,
-      'Préparation (min)': prep, 'Cuisson (min)': cook, 'Image': f.image.value.trim(),
+      'Préparation (min)': prep, 'Cuisson (min)': cook, 'Image': f.image.value.trim(), 'Catégorie': f.cat.value,
     };
     if (!rec['Nom']) return;
     bg.remove();
@@ -1458,8 +1649,8 @@ function renderRecipe() {
   const author = r['Profil'] ? `Proposée par ${r['Profil']}` : '';
   $('#recipeView').innerHTML = `
     <button class="back" data-close aria-label="Retour"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-    ${heroHTML(r)}
-    <div class="rdetail">
+    ${r['Image'] ? heroHTML(r) : ''}
+    <div class="rdetail${r['Image'] ? '' : ' no-hero'}">
       <div class="rhead">
         <h1>${esc(r['Nom'])}</h1>
         <div class="by">${esc(author)}${yes(r['Sans porc']) ? ' · Sans porc' : r['Sans porc'] ? ' · <span class="badge warn">Contient du porc</span>' : ''}</div>
@@ -1544,6 +1735,7 @@ function render() {
   });
   // Pendant la saisie d'une recherche, on ne redessine que la liste pour garder le clavier ouvert
   if (tab === 'stock' && document.activeElement?.id === 'stockSearch' && $('#stockList')) $('#stockList').innerHTML = stockListHTML();
+  else if (tab === 'recettes' && document.activeElement?.id === 'recipeSearch' && $('#recipeList')) $('#recipeList').innerHTML = recipeListHTML();
   else {
     let html;
     try { html = view(); } catch (err) { html = errorView(err); }
@@ -1590,6 +1782,10 @@ document.addEventListener('click', (e) => {
   if (t) { tab = t.dataset.tab; store.set('tab', tab); window.scrollTo(0, 0); render(); return; }
   const f = e.target.closest('[data-filter]');
   if (f) { recipeFilter = f.dataset.filter; store.set('recipeFilter', recipeFilter); render(); return; }
+  const fv = e.target.closest('[data-fav]');
+  if (fv) { toggleFavorite(fv.dataset.fav); return; }
+  const rcat = e.target.closest('[data-rcat]');
+  if (rcat) { recipeCat = rcat.dataset.rcat; store.set('recipeCat', recipeCat); render(); return; }
   const rc = e.target.closest('[data-recipe]');
   if (rc) { openRecipe(rc.dataset.recipe); return; }
   // Toucher un produit marqué l'enlève de la suppression ; juste après un glissement, on ignore le clic
@@ -1598,6 +1794,8 @@ document.addEventListener('click', (e) => {
   if (Date.now() - swipedAt < 300) return;
   const qb = e.target.closest('[data-qty]');
   if (qb) { openQtySheet(qb.dataset.qty); return; }
+  const sr = e.target.closest('.swipe[data-kind="stock"]');
+  if (sr) { openStockEdit(sr.dataset.key); return; }
   const c = e.target.closest('[data-item]');
   if (c) { toggleItem(c.dataset.item); return; }
   if (e.target.closest('[data-clearbought]')) {
@@ -1612,6 +1810,18 @@ document.addEventListener('click', (e) => {
   if (sl) { stockLoc = sl.dataset.sloc; store.set('stockLoc', stockLoc); render(); return; }
   const col = e.target.closest('[data-collapse]');
   if (col) { const l = col.dataset.collapse; collapsed[l] = !collapsed[l]; store.set('collapsed', collapsed); render(); return; }
+  if (e.target.closest('[data-foldall]')) {
+    // Clés de tous les stocks et catégories affichés : on replie tout s'il reste quelque chose d'ouvert
+    let items = stockItems();
+    if (stockLoc !== 'all' && stockLoc !== URGENT) items = items.filter((s) => norm(s['Emplacement']) === norm(stockLoc));
+    // « Tout replier » ferme les catégories et laisse les stocks ouverts : on voit toutes les catégories d'un coup d'œil
+    const locs = groupBy(items, 'Emplacement', locations());
+    const catKeys = locs.flatMap(([loc, inLoc]) => groupBy(inLoc, 'Catégorie').map(([cat]) => loc + '|' + cat));
+    const fold = catKeys.some((k) => !collapsed[k]);
+    catKeys.forEach((k) => { collapsed[k] = fold; });
+    locs.forEach(([loc]) => { collapsed[loc] = false; });
+    store.set('collapsed', collapsed); render(); return;
+  }
 });
 document.addEventListener('keydown', (e) => {
   const c = e.target.closest?.('[data-item]');

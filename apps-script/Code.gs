@@ -3,8 +3,8 @@
  * À coller dans Extensions > Apps Script du Google Sheets « Appli Courses – Base de données ».
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
- * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, removeStock, setEmplacements, upload,
- *   saveRecipe, deleteRecipe, requestIdeas.
+ * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, upload,
+ *   saveRecipe, setFavorite, deleteRecipe, requestIdeas.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
@@ -105,6 +105,19 @@ const ACTIONS = {
     },
   },
 
+  updateStock: {
+    run(b) {
+      const t = table('Stock');
+      const r = t.findWhere((row) => same(row['Produit'], b.produit) && same(row['Emplacement'], b.emplacement));
+      if (r < 0) throw new Error('produit introuvable');
+      const it = b.item || {};
+      const cols = { produit: 'Produit', quantite: 'Quantité', unite: 'Unité', emplacement: 'Emplacement', categorie: 'Catégorie', dlc: 'DLC' };
+      Object.keys(cols).forEach((k) => { if (it[k] !== undefined) t.set(r, cols[k], it[k]); });
+      t.set(r, 'Dernière MAJ', Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'));
+      return {};
+    },
+  },
+
   removeStock: {
     run(b) {
       const t = table('Stock');
@@ -190,6 +203,20 @@ const ACTIONS = {
         rec['Date'] = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
         t.append(rec);
       }
+      return {};
+    },
+  },
+
+  // Colonne Favoris : liste des profils qui ont mis la recette en favori (« Henda, Gérémy »)
+  setFavorite: {
+    run(b) {
+      const t = table('Recettes');
+      const r = t.find('Nom', b.nom);
+      if (r < 0) throw new Error('recette introuvable');
+      const list = String(t.get(r, 'Favoris') || '').split(',').map((s) => s.trim()).filter(Boolean)
+        .filter((p) => !same(p, b.profil));
+      if (b.on) list.push(b.profil);
+      t.set(r, 'Favoris', list.join(', '));
       return {};
     },
   },
