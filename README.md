@@ -36,6 +36,26 @@ Téléphone <── l'appli relit le Sheets (toutes les minutes quand elle est o
 - **Photo du stock** (on choisit le stock) : inventaire des produits visibles dans ce stock.
 - Les photos sont traitées à 12 h et 20 h. Si le PC est éteint à ce moment-là, dès qu'il est rallumé.
 
+### Panier Leclerc Drive (Montpellier Pierres Vives)
+
+1. Courses > **Préparer le panier Drive**.
+2. Au prochain passage du PC, il cherche 5 articles Leclerc pour chaque produit à acheter (sans porc, sauf si le produit de la liste en est).
+   Ils arrivent dans l'onglet **Drive** du Sheets.
+3. Dans l'appli, **Choisir les articles** : un article et un nombre par produit, ou « Ne pas prendre ».
+   L'article choisi est retenu (onglet **Choix Drive**) et proposé d'office la fois suivante (« Habituel »).
+   « ≈ prix payé » signale l'article dont le prix est proche du dernier prix de l'onglet Historique.
+4. Au passage suivant, le PC met les articles dans le panier Leclerc.
+5. Le créneau et le paiement se font toujours à la main, sur Leclerc Drive.
+
+Sur le PC, le serveur [mcp-leclerc-drive](https://github.com/skunkobi/mcp-leclerc-drive), en version figée 0.3.0 (`worker/drive`), pilote une fenêtre Chrome dédiée.
+Ce Chrome a son propre profil, dans `~/.mcp-leclerc-drive`.
+Le compte Leclerc y est connecté une fois pour toutes, à la main.
+Si Leclerc demande de se reconnecter, le panier passe en erreur dans l'appli.
+
+Installation : `cd worker/drive && npm install --ignore-scripts`.
+
+Pour tester la recherche sans rien enregistrer : `node worker/worker.js --essai`.
+
 ## Onglets du Sheets
 
 - **Stock** : alerte si la DLC est dans moins de 3 jours. Dates `2026-11-08` ou `08/11/2026`.

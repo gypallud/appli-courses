@@ -1,0 +1,8 @@
+{
+  "name": "appli-courses-drive",
+  "private": true,
+  "description": "Serveur MCP Leclerc Drive, version figée et relue",
+  "dependencies": {
+    "mcp-leclerc-drive": "0.3.0"
+  }
+}

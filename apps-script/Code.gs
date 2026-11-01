@@ -4,8 +4,9 @@
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, upload,
- *   saveRecipe, setFavorite, deleteRecipe, requestIdeas.
- * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes, fail.
+ *   saveRecipe, setFavorite, deleteRecipe, requestIdeas, requestDrive, driveSelect, driveCancel.
+ * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
+ *   driveProposals, driveDone, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
 // puis sont effacées une fois traitées. Pas de Google Drive : Google bloque l'accès Drive pour un script non vérifié.
@@ -17,7 +18,13 @@ const HEADERS = {
   Tickets: ['ID', 'Date', 'Type', 'Emplacement', 'Envoyé par', 'Fichier', 'Statut', 'Résumé'],
   Emplacements: ['Nom'],
   Photos: ['ID', 'Type MIME', 'Données'],
+  // Panier Drive en cours : une ligne par produit de la liste, Candidats = articles Leclerc proposés (JSON)
+  Drive: ['Ticket', 'Produit', 'Quantité', 'Candidats', 'Choix', 'Statut'],
+  // Article Leclerc choisi pour chaque produit : proposé d'office la fois suivante
+  'Choix Drive': ['Produit', 'ID', 'Libellé', 'Date'],
 };
+const DRIVE = 'Panier Drive';
+const DRIVE_OPEN = ['En attente', 'À choisir', 'Validé'];
 const DEFAULT_EMPLACEMENTS = ['Frigo', 'Congélateur', 'Placard'];
 
 function doPost(e) {
@@ -244,13 +251,53 @@ const ACTIONS = {
     },
   },
 
+  // Panier Drive : le PC cherche les articles au prochain passage, on choisit dans l'appli, le PC remplit le panier.
+  // La commande (créneau, paiement) se termine toujours à la main sur Leclerc Drive.
+  requestDrive: {
+    run(b) {
+      const open = table('Tickets').rows().find((r) => r['Type'] === DRIVE && DRIVE_OPEN.indexOf(r['Statut']) >= 0);
+      if (open) return { id: open['ID'] };
+      const id = Utilities.getUuid().slice(0, 8);
+      table('Tickets').append({
+        'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
+        'Type': DRIVE, 'Emplacement': '', 'Envoyé par': b.par || '', 'Fichier': '', 'Statut': 'En attente', 'Résumé': '',
+      });
+      return { id };
+    },
+  },
+
+  driveSelect: {
+    run(b) {
+      const t = table('Drive');
+      (b.choix || []).forEach((c) => {
+        const r = t.findWhere((row) => String(row['Ticket']) === String(b.id) && same(row['Produit'], c.produit));
+        if (r < 0) return;
+        t.set(r, 'Choix', c.id || '');
+        t.set(r, 'Quantité', c.id ? Math.max(1, Math.min(20, Math.round(+c.quantite || 1))) : '');
+        t.set(r, 'Statut', c.id ? 'Choisi' : 'Ignoré');
+      });
+      setTicket(b.id, 'Validé', 'Ajout au panier au prochain passage');
+      return {};
+    },
+  },
+
+  driveCancel: {
+    run(b) {
+      setTicket(b.id, 'Annulé', '');
+      return {};
+    },
+  },
+
   // ---- PC ----
   pending: {
     worker: true,
     run() {
       const t = table('Tickets');
       return {
-        tickets: t.rows().filter((r) => r['Statut'] === 'En attente'),
+        tickets: t.rows().filter((r) => r['Statut'] === 'En attente' || (r['Type'] === DRIVE && r['Statut'] === 'Validé')),
+        drive: table('Drive').rows(),
+        choixDrive: table('Choix Drive').rows(),
+        historique: table('Historique').rows(),
         stock: table('Stock').rows(),
         courses: table('Courses').rows(),
         recettes: table('Recettes').rows().map((r) => r['Nom']),
@@ -268,6 +315,45 @@ const ACTIONS = {
         if (!rec['Nom'] || t.find('Nom', rec['Nom']) >= 0) return;
         rec['Date'] = today;
         t.append(rec);
+      });
+      setTicket(b.id, 'Traité', b.resume || '');
+      return {};
+    },
+  },
+
+  // Remplace les propositions du panier précédent
+  driveProposals: {
+    worker: true,
+    run(b) {
+      const sh = sheet('Drive');
+      if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+      const t = table('Drive');
+      (b.items || []).forEach((it) => t.append({
+        'Ticket': b.id, 'Produit': it.produit, 'Quantité': it.quantite || 1,
+        'Candidats': JSON.stringify(it.candidats || []), 'Choix': it.choix || '', 'Statut': 'À choisir',
+      }));
+      setTicket(b.id, 'À choisir', b.resume || '');
+      return {};
+    },
+  },
+
+  driveDone: {
+    worker: true,
+    run(b) {
+      const t = table('Drive');
+      (b.lignes || []).forEach((l) => {
+        const r = t.findWhere((row) => String(row['Ticket']) === String(b.id) && same(row['Produit'], l.produit));
+        if (r >= 0) t.set(r, 'Statut', l.statut);
+      });
+      const memo = table('Choix Drive');
+      const today = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      (b.memo || []).forEach((m) => {
+        const r = memo.find('Produit', m.produit);
+        if (r >= 0) {
+          memo.set(r, 'ID', m.id); memo.set(r, 'Libellé', m.libelle); memo.set(r, 'Date', today);
+        } else {
+          memo.append({ 'Produit': m.produit, 'ID': m.id, 'Libellé': m.libelle, 'Date': today });
+        }
       });
       setTicket(b.id, 'Traité', b.resume || '');
       return {};

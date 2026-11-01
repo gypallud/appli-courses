@@ -429,6 +429,27 @@ nav .ico { position: relative; height: 24px; }
 .loc-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; }
 .loc-row input { flex: 1; border: 0; background: none; padding: 8px 0; outline: none; min-width: 0; }
 .loc-row .icon-btn { width: 36px; height: 36px; }
+.drive-btn { background: linear-gradient(135deg, #dcebf9, #e4efe8); }
+.drive-btn.todo { background: linear-gradient(135deg, #f6e3b4, #dcebf9); }
+.drive-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px; }
+.drive-row .main { flex: 1; min-width: 0; }
+.drive-row .meta { color: var(--muted); font-size: 13px; }
+.drive-row .link { color: var(--accent); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.ditem { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+.ditem.skip { opacity: 0.6; }
+.dhead { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; }
+.dhead b { flex: 1; min-width: 0; font-size: 16px; }
+.dhead .stepper button { width: 32px; height: 32px; }
+.dhead .stepper span { min-width: 30px; }
+.dopt { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); }
+.dopt .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; margin-top: 1px; }
+.dopt.on .radio { border: 6px solid var(--accent); }
+.dopt .main { flex: 1; min-width: 0; }
+.dopt .l { display: block; font-size: 14px; line-height: 1.3; }
+.dopt .m { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.dopt .tag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.dopt.none .l { color: var(--muted); }
+.dfoot { position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom)); background: var(--bg); padding: 10px 0 calc(20px + env(safe-area-inset-bottom)); margin-bottom: calc(-20px - env(safe-area-inset-bottom)); }
 </style>
 </head>
 <body>
@@ -487,6 +508,7 @@ const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
 const DLC_ALERT_DAYS = 3;
 const ANALYSIS_TIMES = '12 h et 20 h'; // heures des tâches planifiées sur le PC
 const IDEAS_TIMES = '12 h 10 et 20 h 10';
+const DRIVE_URL = 'https://www.leclercdrive.fr/'; // drive Montpellier Pierres Vives, choisi sur le PC
 
 // ---- Utilitaires ----
 const $ = (s) => document.querySelector(s);
@@ -543,7 +565,7 @@ const fmtMin = (m) => { m = num(m); if (m === null) return ''; return m >= 60 ? 
 // ---- Données ----
 let data = store.get('data', {});
 // Une copie enregistrée par une ancienne version peut manquer d'onglets (Tickets, Emplacements…)
-for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Tickets']) if (!Array.isArray(data[k])) data[k] = [];
+for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Tickets', 'Drive']) if (!Array.isArray(data[k])) data[k] = [];
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
@@ -553,7 +575,7 @@ let localStockAdds = store.get('localStockAdds', []); // produits ajoutés au st
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
-const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', Tickets: 'ID' };
+const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', Tickets: 'ID', Drive: 'Candidats' };
 
 async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
@@ -572,7 +594,7 @@ async function refresh(manual) {
   $('#refreshBtn').classList.add('spin');
   try {
     const names = Object.keys(SHEETS);
-    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (n === 'Emplacements' || n === 'Tickets' ? [] : Promise.reject(e)))));
+    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Tickets', 'Drive'].includes(n) ? [] : Promise.reject(e)))));
     data = Object.fromEntries(names.map((n, i) => [n, results[i]]));
     data.at = Date.now();
     store.set('data', data);
@@ -710,7 +732,7 @@ const TYPES = { ticket: 'Ticket de caisse', stock: 'Photo du stock', ideas: 'Id�
 // scope 'photos' : tickets et photos du stock (onglet Stock) ; 'ideas' : demandes d'idées (onglet Recettes)
 function uploads(scope = 'photos') {
   const day = Date.now() - 86400000;
-  const inScope = (type) => (type === TYPES.ideas) === (scope === 'ideas');
+  const inScope = (type) => type !== 'Panier Drive' && (type === TYPES.ideas) === (scope === 'ideas');
   const fromSheet = data.Tickets
     .filter((t) => (parseDate(t['Date']) || 0) > day && inScope(t['Type']))
     .map((t) => {
@@ -1293,11 +1315,114 @@ $('#view').addEventListener('input', (e) => {
 $('#confirmDelete').addEventListener('click', confirmDelete);
 $('#cancelDelete').addEventListener('click', () => { markedSets[tab]?.clear(); render(); });
 
+// ---- Panier Leclerc Drive ----
+// Le PC cherche les articles au prochain passage, on les choisit ici, puis le PC remplit le panier au passage suivant.
+// La commande (créneau, paiement) se termine sur Leclerc Drive.
+const DRIVE_STEPS = ['En attente', 'À choisir', 'Validé'];
+let driveLocal = store.get('driveLocal', null); // dernier changement envoyé, en attente de confirmation
+
+function driveTicket() {
+  const t = data.Tickets.filter((x) => x['Type'] === 'Panier Drive').sort((a, b) => (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0))[0];
+  let cur = t ? { id: t['ID'], statut: t['Statut'], resume: t['Résumé'], at: +parseDate(t['Date']) } : null;
+  if (driveLocal && Date.now() - driveLocal.at < 600000) {
+    const sheet = data.Tickets.find((x) => x['ID'] === driveLocal.id);
+    // Le tableur n'a pas encore rattrapé ce qu'on vient d'envoyer : on affiche l'état local
+    const rank = (s) => { const i = DRIVE_STEPS.indexOf(s); return i < 0 ? 9 : i; };
+    if (!sheet || rank(sheet['Statut']) < rank(driveLocal.statut)) cur = { ...cur, ...driveLocal };
+  }
+  return cur;
+}
+
+function setDriveLocal(id, statut) {
+  driveLocal = { id, statut, at: Date.now() };
+  store.set('driveLocal', driveLocal);
+  render();
+}
+
+function viewDrive() {
+  const t = driveTicket();
+  const s = t?.statut;
+  const ask = (todo) => `<button class="ideas-btn drive-btn${todo ? ' todo' : ''}" data-drive="${todo ? 'choose' : 'request'}">
+      <span class="emoji">🛒</span><span class="main"><b>${todo ? 'Choisir les articles Leclerc' : 'Préparer le panier Drive'}</b><small>${esc(todo ? t.resume || 'Les propositions sont prêtes' : 'Le PC cherche les articles, tu choisis, il remplit le panier')}</small></span>
+    </button>`;
+  const row = (icon, title, meta, extra = '') => `<div class="drive-row">${icon}<div class="main"><div class="name">${esc(title)}</div><div class="meta">${esc(meta)}</div></div>${extra}</div>`;
+  if (s === 'En attente') return row('<span class="badge neutral">⏳</span>', 'Panier Drive', `Recherche des articles au prochain passage du PC (${ANALYSIS_TIMES})`, '<button class="link" data-drive="cancel">Annuler</button>');
+  if (s === 'À choisir') return ask(true);
+  if (s === 'Validé') return row('<span class="badge neutral">⏳</span>', 'Panier Drive', 'Ajout au panier au prochain passage du PC');
+  if (s === 'Traité' && Date.now() - t.at < 3 * 86400000) return row('<span class="badge ok">✓</span>', t.resume || 'Panier rempli', 'Choisis le créneau et paie sur Leclerc Drive', `<a class="link" href="${DRIVE_URL}" target="_blank" rel="noopener">Ouvrir</a>`) + ask(false);
+  if (s === 'Erreur' && Date.now() - t.at < 86400000) return row('<span class="badge danger">!</span>', 'Panier Drive non rempli', t.resume || 'Réessaie', '<button class="link" data-drive="request">Réessayer</button>');
+  return ask(false);
+}
+
+async function requestDrive() {
+  if (needSync()) return;
+  if (!courses().some((c) => !isBought(c))) { toast('Rien à acheter dans la liste'); return; }
+  try {
+    const out = await send({ action: 'requestDrive', par: profile });
+    setDriveLocal(out.id, 'En attente');
+    toast('Demande envoyée · articles proposés au prochain passage');
+  } catch { toast('Pas de réseau : réessaie'); }
+}
+
+async function cancelDrive() {
+  const t = driveTicket();
+  if (!t) return;
+  try {
+    await send({ action: 'driveCancel', id: t.id });
+    setDriveLocal(t.id, 'Annulé');
+  } catch { toast('Pas de réseau : réessaie'); }
+}
+
+const euro = (n) => n.toFixed(2).replace('.', ',') + ' €';
+
+function openDriveSheet() {
+  const t = driveTicket();
+  const rows = data.Drive.filter((r) => String(r['Ticket']) === String(t?.id));
+  if (!rows.length) { toast('Propositions pas encore chargées, réessaie dans un instant'); refresh(); return; }
+  const items = rows.map((r) => {
+    let cands = [];
+    try { cands = JSON.parse(r['Candidats'] || '[]'); } catch {}
+    return { produit: r['Produit'], cands, id: String(r['Choix'] || ''), q: Math.max(1, num(r['Quantité']) || 1) };
+  });
+  const bg = openSheet('<div id="driveSel"></div>');
+  const draw = () => {
+    const chosen = items.filter((i) => i.id);
+    const total = chosen.reduce((sum, i) => sum + (i.cands.find((c) => String(c.id) === i.id)?.p || 0) * i.q, 0);
+    const left = items.length - chosen.length;
+    bg.querySelector('#driveSel').innerHTML = `<h2>🛒 Panier Drive</h2>
+      <p class="hint" style="margin:-6px 4px 16px">Choisis l’article pour chaque produit. Le PC le met au panier au prochain passage, puis tu choisis le créneau et paies sur Leclerc Drive.</p>
+      ${items.map((it, i) => `<div class="ditem${it.id ? '' : ' skip'}">
+        <div class="dhead"><b>${esc(it.produit)}</b>${it.id ? `<div class="stepper"><button type="button" data-dq="${i}|-1" aria-label="Moins">−</button><span>${it.q}</span><button type="button" data-dq="${i}|1" aria-label="Plus">+</button></div>` : ''}</div>
+        ${it.cands.map((c) => `<button type="button" class="dopt${String(c.id) === it.id ? ' on' : ''}" data-dpick="${i}|${esc(String(c.id))}"><span class="radio"></span><span class="main">
+          <span class="l">${esc(c.l)}${c.m ? '<span class="tag">Habituel</span>' : c.h ? '<span class="tag">≈ prix payé</span>' : ''}</span>
+          <span class="m">${c.p ? euro(c.p) : ''}${c.u ? ' · ' + esc(c.u) : ''}</span></span></button>`).join('') || '<div class="dopt none"><span class="main"><span class="l">Aucun article trouvé chez Leclerc</span></span></div>'}
+        ${it.cands.length ? `<button type="button" class="dopt none${it.id ? '' : ' on'}" data-dpick="${i}|"><span class="radio"></span><span class="main"><span class="l">Ne pas prendre</span></span></button>` : ''}
+      </div>`).join('')}
+      <div class="dfoot"><button class="btn" data-dgo ${chosen.length ? '' : 'disabled'}>${chosen.length ? `Remplir le panier · ${chosen.length} article${chosen.length > 1 ? 's' : ''} · ${euro(total)}` : 'Choisis au moins un article'}</button>
+      ${left && chosen.length ? `<p class="hint" style="text-align:center">${left} produit${left > 1 ? 's' : ''} sans article ne ser${left > 1 ? 'ont' : 'a'} pas ajouté${left > 1 ? 's' : ''}</p>` : ''}</div>`;
+  };
+  draw();
+  bg.addEventListener('click', async (e) => {
+    const pk = e.target.closest('[data-dpick]');
+    if (pk) { const [i, id] = pk.dataset.dpick.split('|'); items[i].id = id; draw(); return; }
+    const dq = e.target.closest('[data-dq]');
+    if (dq) { const [i, d] = dq.dataset.dq.split('|'); items[i].q = Math.max(1, Math.min(20, items[i].q + +d)); draw(); return; }
+    if (!e.target.closest('[data-dgo]')) return;
+    bg.remove();
+    try {
+      await send({ action: 'driveSelect', id: t.id, choix: items.map((it) => ({ produit: it.produit, id: it.id, quantite: it.q })) });
+      setDriveLocal(t.id, 'Validé');
+      toast('C’est noté · panier rempli au prochain passage');
+    } catch { toast('Pas de réseau : choix non envoyé'); }
+  });
+}
+
 function viewCourses() {
   const items = courses();
-  if (!items.length) return empty('Liste vide', 'Rien à acheter pour le moment.');
+  if (!items.length) return (SYNC_URL ? viewDrive() : '') + empty('Liste vide', 'Rien à acheter pour le moment.');
   const done = items.filter(isBought).length;
-  let html = `<p class="sub">${items.length - done === 0 ? 'Tout est dans le panier' : `${items.length - done} à acheter · ${done} dans le panier`}</p>`;
+  let html = SYNC_URL ? viewDrive() : '';
+  html += `<p class="sub">${items.length - done === 0 ? 'Tout est dans le panier' : `${items.length - done} à acheter · ${done} dans le panier`}</p>`;
   html += `<div class="progress"><div style="width:${Math.round((done / items.length) * 100)}%"></div></div>`;
   const prioRank = (p) => ({ haute: 0, moyenne: 1, basse: 2 }[norm(p)] ?? 1);
   const groups = groupBy(items, 'Catégorie');
@@ -1804,6 +1929,8 @@ document.addEventListener('click', (e) => {
   }
   if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
+  const dv = e.target.closest('[data-drive]');
+  if (dv) { ({ request: requestDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
   const rs = e.target.closest('[data-rsort]');
   if (rs) { recipeSort = rs.dataset.rsort; store.set('recipeSort', recipeSort); render(); return; }
   const sl = e.target.closest('[data-sloc]');

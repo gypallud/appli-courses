@@ -33,12 +33,15 @@ async function call(action, extra = {}) {
 // Deux modes : les photos (ticket, stock) et les demandes d'idées de recettes, lancés à des heures différentes
 const IDEAS = 'Idées recettes';
 const RECIPES_MODE = process.argv.includes('--recipes');
-const isMine = (t) => (t['Type'] === IDEAS) === RECIPES_MODE;
-// --essai (avec --recipes) : génère 2 idées pour Henda et les affiche, sans rien enregistrer
+// Le panier Drive n'utilise pas Claude : il est traité à chaque passage
+const DRIVE = 'Panier Drive';
+const isMine = (t) => t['Type'] === DRIVE || (t['Type'] === IDEAS) === RECIPES_MODE;
+// --essai : avec --recipes, génère 2 idées pour Henda ; sans, cherche les articles Drive des 4 premiers produits de la liste.
+// Affiche le résultat sans rien enregistrer.
 const TRIAL = process.argv.includes('--essai');
 
 async function hasPending() {
-  const where = `G = 'En attente' and C ${RECIPES_MODE ? '=' : '<>'} '${IDEAS}'`;
+  const where = `(G = 'En attente' and C ${RECIPES_MODE ? '=' : '<>'} '${IDEAS}') or (C = '${DRIVE}' and (G = 'En attente' or G = 'Validé'))`;
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=Tickets&tq=${encodeURIComponent('select count(A) where ' + where)}&t=${Date.now()}`;
   const text = await (await fetch(url)).text();
   if (text.trimStart().startsWith('<')) return true; // Sheets non public : on demande directement à Apps Script
@@ -151,9 +154,120 @@ async function processIdeas(t, ctx) {
   }
 }
 
+// ---- Panier Leclerc Drive ----
+// 1er passage : cherche des articles pour chaque produit à acheter (onglet Drive) ; on choisit dans l'appli.
+// Passage suivant : ajoute les articles choisis au panier. La commande se termine à la main sur Leclerc Drive.
+const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/œ/g, 'oe').trim();
+const PORK = /\b(porc|jambon|lardons?|bacon|saucissons?|chorizo|rillettes?|andouill|boudin|coppa|pancetta|prosciutto|serrano|mortadelle|rosette|knacks?|cervelas|chipolatas?|saucisses?|pate de campagne|museau|travers|echine|filet mignon)\b/;
+const NOT_PORK = /\b(volaille|poulet|dinde|boeuf|halal|veau|agneau|vegetal|vegetarien|soja|thon|saumon)\b/;
+const isPork = (s) => PORK.test(normTxt(s)) && !NOT_PORK.test(normTxt(s));
+const toNum = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(n) ? null : n; };
+
+// « Lait demi-écrémé Délisse - 1L — 1.05 € [1,05 € / l] ⚠️ indisponible id=964 »
+function parseProducts(text) {
+  return text.split('\n').map((line) => {
+    const m = line.match(/^(.*?) — ([\d.]+) €(?: \[([^\]]+)\])?(.*?)id=(\S+)\s*$/);
+    return m && { id: m[5], l: m[1].trim(), p: +m[2], u: m[3] || '', ok: !m[4].includes('indisponible') };
+  }).filter(Boolean);
+}
+
+// Nombre d'articles à mettre au panier : la quantité de la liste quand elle compte des unités, sinon 1
+function packs(c) {
+  const q = toNum(c['Quantité']);
+  const unitOk = !c['Unité'] || /pi[eè]ce|paquet|bo[iî]te|pot|bouteille|lot|sachet|barquette|brique|boc/i.test(c['Unité']);
+  return q && Number.isInteger(q) && q >= 1 && q <= 12 && unitOk ? q : 1;
+}
+
+// Dernier prix unitaire payé pour ce produit (onglet Historique), pour repérer l'article habituel
+function lastPrice(ctx, produit) {
+  const k = normTxt(produit);
+  const rows = (ctx.historique || []).filter((h) => normTxt(h['Produit']) === k);
+  const h = rows[rows.length - 1];
+  if (!h) return null;
+  const prix = toNum(h['Prix']), q = toNum(h['Quantité']);
+  return prix ? (q && q > 1 && Number.isInteger(q) ? prix / q : prix) : null;
+}
+
+async function driveSearch(ctx, drive) {
+  const memo = new Map((ctx.choixDrive || []).map((m) => [normTxt(m['Produit']), m]));
+  const items = [];
+  for (const c of ctx.courses.filter((c) => c['Produit'] && c['Statut'] !== 'Acheté')) {
+    const porkOk = isPork(c['Produit']); // du porc seulement s'il est demandé explicitement dans la liste
+    let found = [];
+    try { found = parseProducts(await drive.call('search_product', { query: c['Produit'] })); }
+    catch (e) { log('  recherche impossible :', c['Produit'], e.message); }
+    found = found.filter((p) => p.ok && (porkOk || !isPork(p.l)));
+    // Leclerc mélange les rayons (« Pommes » renvoie aussi des jus) : d'abord les articles dont le nom commence par le produit
+    const words = normTxt(c['Produit']).split(/[^a-z0-9]+/).filter((w) => w.length > 2).map((w) => w.replace(/[sx]$/, ''));
+    const score = (p) => { const l = normTxt(p.l); return (words[0] && l.startsWith(words[0]) ? 2 : 0) + (words.every((w) => l.includes(w)) ? 1 : 0); };
+    found = found.map((p, i) => ({ p, i, s: score(p) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.p);
+    const m = memo.get(normTxt(c['Produit']));
+    const known = m && found.find((p) => String(p.id) === String(m['ID']));
+    const price = lastPrice(ctx, c['Produit']);
+    let cands = found.filter((p) => p !== known).slice(0, known ? 4 : 5);
+    if (known) cands.unshift({ ...known, m: 1 });
+    if (price) {
+      const near = cands.filter((p) => !p.m && Math.abs(p.p - price) / price < 0.1).sort((a, b) => Math.abs(a.p - price) - Math.abs(b.p - price))[0];
+      if (near) near.h = 1;
+    }
+    cands = cands.map(({ ok, ...p }) => p);
+    items.push({ produit: c['Produit'], quantite: packs(c), candidats: cands, choix: known ? known.id : '' });
+    log(`  ${c['Produit']} : ${cands.length} article(s)${known ? ' (habituel trouvé)' : ''}`);
+  }
+  const toChoose = items.filter((i) => !i.choix).length;
+  return { items, resume: `${items.length} produits · ${toChoose ? toChoose + ' à choisir' : 'tous déjà choisis, à valider'}` };
+}
+
+async function driveFill(t, ctx, drive) {
+  const rows = (ctx.drive || []).filter((r) => String(r['Ticket']) === String(t['ID']) && r['Statut'] === 'Choisi' && r['Choix']);
+  const lignes = [], memo = [];
+  for (const r of rows) {
+    const cand = JSON.parse(r['Candidats'] || '[]').find((p) => String(p.id) === String(r['Choix']));
+    try {
+      await drive.call('add_to_cart', { product_id: String(r['Choix']), quantity: Math.max(1, Math.round(toNum(r['Quantité']) || 1)) });
+      lignes.push({ produit: r['Produit'], statut: 'Au panier' });
+      memo.push({ produit: r['Produit'], id: String(r['Choix']), libelle: cand ? cand.l : '' });
+      log('  +', r['Produit']);
+    } catch (e) {
+      lignes.push({ produit: r['Produit'], statut: 'Erreur' });
+      log('  ✗', r['Produit'], e.message);
+    }
+  }
+  const ok = lignes.filter((l) => l.statut === 'Au panier').length;
+  if (rows.length && !ok) throw new Error('Leclerc ne répond pas : reconnecte-toi sur leclercdrive.fr dans le Chrome du PC');
+  const total = (await drive.call('get_cart').catch(() => '')).match(/Total : ([\d.]+) €/);
+  const errors = lignes.length - ok;
+  const resume = `${ok} produit${ok > 1 ? 's' : ''} au panier${total ? ` · total ${total[1].replace('.', ',')} €` : ''}${errors ? ` · ${errors} non ajouté${errors > 1 ? 's' : ''}` : ''}`;
+  await call('driveDone', { id: t['ID'], lignes, memo, resume });
+  return resume;
+}
+
+async function processDrive(t, ctx) {
+  const { openDrive } = await import('./drive/drive.mjs');
+  const drive = await openDrive();
+  try {
+    if (t['Statut'] === 'Validé') return await driveFill(t, ctx, drive);
+    const { items, resume } = await driveSearch(ctx, drive);
+    if (TRIAL) { console.log(JSON.stringify(items, null, 2)); return 'essai : rien enregistré'; }
+    await call('driveProposals', { id: t['ID'], items, resume });
+    return resume;
+  } finally {
+    await drive.close().catch(() => {});
+  }
+}
+
 async function processAll() {
   const ctx = await call('pending');
   for (const t of ctx.tickets.filter(isMine)) {
+    if (t['Type'] === DRIVE) {
+      log(`Panier Drive (${t['Statut']}) de ${t['Envoyé par']} (${t['ID']})…`);
+      try { log('  ✓', await processDrive(t, ctx)); }
+      catch (e) {
+        log('  ✗', e.message);
+        await call('fail', { id: t['ID'], error: e.message.slice(0, 200) }).catch(() => {});
+      }
+      continue;
+    }
     if (RECIPES_MODE) {
       log(`Idées de recettes pour ${t['Envoyé par']} (${t['ID']})…`);
       try { log('  ✓', await processIdeas(t, ctx)); }
@@ -195,7 +309,11 @@ async function tick() {
 }
 
 // --once : un seul passage puis arrêt (lancé à heures fixes par le Planificateur de tâches Windows)
-if (TRIAL) {
+if (TRIAL && !RECIPES_MODE) {
+  call('pending')
+    .then((ctx) => processDrive({ 'ID': 'essai', 'Statut': 'En attente' }, { ...ctx, courses: ctx.courses.filter((c) => c['Statut'] !== 'Acheté').slice(0, 4) }))
+    .then((m) => log(m), (e) => log('Erreur :', e.message));
+} else if (TRIAL) {
   call('pending')
     .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': '{"nombre":2}' }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
