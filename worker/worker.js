@@ -1,6 +1,8 @@
 // Analyse les photos envoyées depuis l'appli, sur le PC, avec Claude Code.
 // Surveille l'onglet Tickets (lecture publique, gratuite) et ne lance Claude que quand une photo attend.
-// Usage : node worker/worker.js        (config dans worker/config.json, voir config.example.json)
+// Usage : node worker/worker.js --once   un passage (tâche planifiée à 12 h et 20 h, voir install-taches.ps1)
+//         node worker/worker.js          surveillance continue toutes les pollSeconds
+// Config dans worker/config.json (voir config.example.json).
 
 const fs = require('fs');
 const os = require('os');
@@ -125,6 +127,12 @@ async function tick() {
   }
 }
 
-log(`Surveillance des photos toutes les ${POLL_MS / 1000} s. Ctrl+C pour arrêter.`);
-tick();
-setInterval(tick, POLL_MS);
+// --once : un seul passage puis arrêt (lancé à heures fixes par le Planificateur de tâches Windows)
+if (process.argv.includes('--once')) {
+  log('Passage unique.');
+  tick().then(() => log('Terminé.'));
+} else {
+  log(`Surveillance des photos toutes les ${POLL_MS / 1000} s. Ctrl+C pour arrêter.`);
+  tick();
+  setInterval(tick, POLL_MS);
+}

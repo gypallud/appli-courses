@@ -26,15 +26,15 @@ Au premier lancement, choisir son profil. L'initiale en haut à droite ouvre les
 ```
 Téléphone ──photo──> Apps Script ──> onglet caché Photos + onglet Tickets (En attente)
                                                         │
-PC (worker, toutes les 15 s, gratuit) <── voit « En attente »
+PC (tâche planifiée à 12 h et 20 h) <── voit « En attente »
    └─> Claude Code lit la photo ──> Apps Script met à jour Stock / Historique / Courses ──> Tickets = Traité
                                                         │
-Téléphone <── l'appli relit le Sheets (toutes les 15 s pendant une analyse)
+Téléphone <── l'appli relit le Sheets (toutes les minutes quand elle est ouverte)
 ```
 
 - **Ticket de caisse** : produits ajoutés au stock, prix dans Historique, produits de la liste cochés « Acheté ».
 - **Photo du stock** (on choisit le stock) : inventaire des produits visibles dans ce stock.
-- Si le PC est éteint, les photos attendent et sont traitées au prochain démarrage du worker.
+- Les photos sont traitées à 12 h et 20 h. Si le PC est éteint à ce moment-là, dès qu'il est rallumé.
 
 ## Onglets du Sheets
 
@@ -62,7 +62,9 @@ Modifier le script plus tard : **Déployer > Gérer les déploiements > ✎ > No
 
 ### 2. PC
 1. Copier `worker/config.example.json` en `worker/config.json`, y mettre l'URL `/exec` et la clé du PC.
-2. Lancer `worker/start-worker.cmd` (double-clic). Pour un lancement automatique, le placer dans le dossier Démarrage de Windows (`Win+R` > `shell:startup`).
+2. Créer la tâche planifiée (12 h et 20 h) : `powershell -ExecutionPolicy Bypass -File workerinstall-taches.ps1`.
+   Pour changer les heures, modifier ce fichier et le relancer, ainsi que `ANALYSIS_TIMES` dans `index.html`.
+   Traiter les photos tout de suite : `node worker/worker.js --once`. Surveillance continue : `worker/start-worker.cmd`.
 
 Le worker utilise Claude Code (`claude -p`) avec le compte Claude connecté sur le PC.
 

@@ -367,6 +367,7 @@ const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6s
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
 const DLC_ALERT_DAYS = 3;
+const ANALYSIS_TIMES = '12 h et 20 h'; // heures des tâches planifiées sur le PC
 
 // ---- Utilitaires ----
 const $ = (s) => document.querySelector(s);
@@ -462,12 +463,10 @@ async function refresh(manual) {
   }
 }
 
-// Plus fréquent tant qu'une photo est en cours d'analyse
 let refreshTimer;
 function scheduleRefresh() {
   clearTimeout(refreshTimer);
-  const waiting = uploads().some((u) => u.state === 'wait');
-  refreshTimer = setTimeout(() => { if (!document.hidden) refresh(); else scheduleRefresh(); }, waiting ? 15000 : 60000);
+  refreshTimer = setTimeout(() => { if (!document.hidden) refresh(); else scheduleRefresh(); }, 60000);
 }
 
 async function send(payload) {
@@ -593,7 +592,7 @@ function openPhotoSheet() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
       Prendre la photo
     </button>
-    <p class="hint" id="photoHint">${photoChoice.type === 'ticket' ? 'Le ticket entier, bien à plat. Le stock et la liste de courses se mettent à jour tout seuls.' : 'Une vue d’ensemble, portes ouvertes. Les produits visibles sont mis à jour dans ce stock.'}</p>`);
+    <p class="hint" id="photoHint">${photoChoice.type === 'ticket' ? 'Le ticket entier, bien à plat. Le stock et la liste de courses se mettent à jour tout seuls.' : 'Une vue d’ensemble, portes ouvertes. Les produits visibles sont mis à jour dans ce stock.'} Les photos sont traitées à ${ANALYSIS_TIMES}.</p>`);
   bg.addEventListener('click', (e) => {
     const t = e.target.closest('[data-ptype]');
     if (t) { photoChoice.type = t.dataset.ptype; bg.remove(); openPhotoSheet(); return; }
@@ -748,7 +747,7 @@ function viewUploads() {
   return `<div class="uploads">${list.map((u) => {
     const what = u.type === 'Photo du stock' && u.loc ? `Photo · ${u.loc}` : (u.type || 'Photo');
     const when = new Date(u.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    let icon = '<span class="dot-spin"></span>', meta = u.sending ? 'Envoi…' : 'Analyse en cours…';
+    let icon = u.sending ? '<span class="dot-spin"></span>' : '<span class="badge neutral">⏳</span>', meta = u.sending ? 'Envoi…' : `En attente · traitée à ${ANALYSIS_TIMES}`;
     if (u.state === 'done') { icon = '<span class="badge ok">✓</span>'; meta = u.summary || 'Stock mis à jour'; }
     if (u.state === 'error') { icon = '<span class="badge danger">!</span>'; meta = 'Photo illisible, essaie d’en reprendre une'; }
     return `<div class="upload">${icon}<div class="main"><div class="name">${esc(what)}</div><div class="meta">${esc(meta)}</div></div><div class="qty">${esc(u.by ? u.by + ' · ' : '')}${when}</div></div>`;
