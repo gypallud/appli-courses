@@ -3,7 +3,7 @@
  * À coller dans Extensions > Apps Script du Google Sheets « Appli Courses – Base de données ».
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
- * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, upload,
+ * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
  *   saveRecipe, setFavorite, deleteRecipe, requestIdeas, requestDrive, driveSelect, driveCancel.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
  *   driveProposals, driveDone, fail.
@@ -17,6 +17,8 @@ const HEADERS = {
   Historique: ['Date', 'Magasin', 'Produit', 'Quantité', 'Prix'],
   Tickets: ['ID', 'Date', 'Type', 'Emplacement', 'Envoyé par', 'Fichier', 'Statut', 'Résumé'],
   Emplacements: ['Nom'],
+  'Catégories': ['Nom'],
+  'Unités': ['Nom'],
   Photos: ['ID', 'Type MIME', 'Données'],
   // Panier Drive en cours : une ligne par produit de la liste, Candidats = articles Leclerc proposés (JSON)
   Drive: ['Ticket', 'Produit', 'Quantité', 'Candidats', 'Choix', 'Statut'],
@@ -25,7 +27,12 @@ const HEADERS = {
 };
 const DRIVE = 'Panier Drive';
 const DRIVE_OPEN = ['En attente', 'À choisir', 'Validé'];
-const DEFAULT_EMPLACEMENTS = ['Frigo', 'Congélateur', 'Placard'];
+// Listes réglables dans l'appli (Réglages), avec leurs valeurs de départ
+const DEFAULT_LISTS = {
+  Emplacements: ['Frigo', 'Congélateur', 'Placard'],
+  'Catégories': ['Produits laitiers', 'Fruits & légumes', 'Viande', 'Poisson', 'Frais', 'Surgelés', 'Épicerie', 'Boulangerie', 'Boissons', 'Hygiène', 'Entretien', 'Autre'],
+  'Unités': ['pièces', 'g', 'kg', 'ml', 'cl', 'L', 'paquet', 'pot', 'boîte', 'bouteille', 'sachet', 'tranches'],
+};
 
 function doPost(e) {
   try {
@@ -168,9 +175,17 @@ const ACTIONS = {
 
   setEmplacements: {
     run(b) {
+      return ACTIONS.setListe.run({ onglet: 'Emplacements', noms: b.noms });
+    },
+  },
+
+  // Remplace une liste réglable : Emplacements, Catégories ou Unités
+  setListe: {
+    run(b) {
+      if (!DEFAULT_LISTS[b.onglet]) throw new Error('liste inconnue');
       const noms = (b.noms || []).map((n) => String(n).trim()).filter(Boolean);
       if (!noms.length) throw new Error('liste vide');
-      const sh = sheet('Emplacements');
+      const sh = sheet(b.onglet);
       sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 1).clearContent();
       sh.getRange(2, 1, noms.length, 1).setValues(noms.map((n) => [n]));
       return {};
@@ -301,7 +316,9 @@ const ACTIONS = {
         stock: table('Stock').rows(),
         courses: table('Courses').rows(),
         recettes: table('Recettes').rows().map((r) => r['Nom']),
-        emplacements: emplacements(),
+        emplacements: listValues('Emplacements'),
+        categories: listValues('Catégories'),
+        unites: listValues('Unités'),
       };
     },
   },
@@ -436,9 +453,9 @@ function setTicket(id, statut, resume) {
   if (p >= 0) photos.remove(p);
 }
 
-function emplacements() {
-  const list = table('Emplacements').rows().map((r) => r['Nom']).filter(Boolean);
-  return list.length ? list : DEFAULT_EMPLACEMENTS;
+function listValues(name) {
+  const list = table(name).rows().map((r) => r['Nom']).filter(Boolean);
+  return list.length ? list : DEFAULT_LISTS[name];
 }
 
 function sheet(name) {
@@ -448,7 +465,8 @@ function sheet(name) {
     sh = ss.insertSheet(name);
     sh.getRange(1, 1, 1, HEADERS[name].length).setValues([HEADERS[name]]).setFontWeight('bold');
     sh.setFrozenRows(1);
-    if (name === 'Emplacements') sh.getRange(2, 1, DEFAULT_EMPLACEMENTS.length, 1).setValues(DEFAULT_EMPLACEMENTS.map((n) => [n]));
+    const def = DEFAULT_LISTS[name];
+    if (def) sh.getRange(2, 1, def.length, 1).setValues(def.map((n) => [n]));
     if (name === 'Photos') sh.hideSheet();
   }
   return sh;

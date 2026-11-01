@@ -429,6 +429,14 @@ nav .ico { position: relative; height: 24px; }
 .loc-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; }
 .loc-row input { flex: 1; border: 0; background: none; padding: 8px 0; outline: none; min-width: 0; }
 .loc-row .icon-btn { width: 36px; height: 36px; }
+.set-list { margin-top: 18px; }
+.set-list summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-weight: 600; cursor: pointer; }
+.set-list summary::-webkit-details-marker { display: none; }
+.set-list summary span { flex: 1; }
+.set-list summary small { color: var(--muted); font-weight: 500; }
+.set-list summary svg { color: var(--muted); transition: transform 0.2s; }
+.set-list[open] summary { margin-bottom: 10px; }
+.set-list[open] summary svg { transform: rotate(180deg); }
 .drive-btn { background: linear-gradient(135deg, #dcebf9, #e4efe8); }
 .drive-btn.todo { background: linear-gradient(135deg, #f6e3b4, #dcebf9); }
 .drive-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px; }
@@ -505,6 +513,8 @@ const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
+const DEFAULT_CATS = ['Produits laitiers', 'Fruits & légumes', 'Viande', 'Poisson', 'Frais', 'Surgelés', 'Épicerie', 'Boulangerie', 'Boissons', 'Hygiène', 'Entretien', 'Autre'];
+const DEFAULT_UNITS = ['pièces', 'g', 'kg', 'ml', 'cl', 'L', 'paquet', 'pot', 'boîte', 'bouteille', 'sachet', 'tranches'];
 const DLC_ALERT_DAYS = 3;
 const ANALYSIS_TIMES = '12 h et 20 h'; // heures des tâches planifiées sur le PC
 const IDEAS_TIMES = '12 h 10 et 20 h 10';
@@ -565,7 +575,7 @@ const fmtMin = (m) => { m = num(m); if (m === null) return ''; return m >= 60 ? 
 // ---- Données ----
 let data = store.get('data', {});
 // Une copie enregistrée par une ancienne version peut manquer d'onglets (Tickets, Emplacements…)
-for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Tickets', 'Drive']) if (!Array.isArray(data[k])) data[k] = [];
+for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive']) if (!Array.isArray(data[k])) data[k] = [];
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
@@ -575,7 +585,7 @@ let localStockAdds = store.get('localStockAdds', []); // produits ajoutés au st
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
-const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', Tickets: 'ID', Drive: 'Candidats' };
+const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', 'Catégories': 'Nom', 'Unités': 'Nom', Tickets: 'ID', Drive: 'Candidats' };
 
 async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
@@ -594,7 +604,7 @@ async function refresh(manual) {
   $('#refreshBtn').classList.add('spin');
   try {
     const names = Object.keys(SHEETS);
-    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Tickets', 'Drive'].includes(n) ? [] : Promise.reject(e)))));
+    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive'].includes(n) ? [] : Promise.reject(e)))));
     data = Object.fromEntries(names.map((n, i) => [n, results[i]]));
     data.at = Date.now();
     store.set('data', data);
@@ -631,10 +641,22 @@ function needSync() {
   return true;
 }
 
-const locations = () => {
-  const list = data.Emplacements.map((e) => e['Nom']).filter(Boolean);
-  return list.length ? list : DEFAULT_LOCATIONS;
+// Listes réglables (onglets Emplacements, Catégories, Unités) : choisir dans une liste évite les doublons dus aux fautes de frappe
+const listOf = (tabName, def) => {
+  const list = data[tabName].map((e) => e['Nom']).filter(Boolean);
+  return list.length ? list : def;
 };
+const locations = () => listOf('Emplacements', DEFAULT_LOCATIONS);
+const categories = () => listOf('Catégories', DEFAULT_CATS);
+const units = () => listOf('Unités', DEFAULT_UNITS);
+
+// Liste déroulante ; une ancienne valeur absente de la liste reste proposée pour ne pas être perdue
+function selectHTML(name, list, value, emptyLabel) {
+  const v = String(value ?? '').trim();
+  const cur = list.find((x) => norm(x) === norm(v)) || v;
+  const opts = !v || list.includes(cur) ? list : [...list, cur];
+  return `<select name="${name}">${emptyLabel !== undefined ? `<option value="">${esc(emptyLabel)}</option>` : ''}${opts.map((o) => `<option${o === cur ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+}
 
 // ---- Courses ----
 const isBought = (item) => {
@@ -809,40 +831,55 @@ $('#photoInput').addEventListener('change', async (e) => {
 
 // ---- Réglages ----
 function openSettings() {
-  const locs = locations();
   const bg = openSheet(`<h2>Réglages</h2>
     <h3 style="margin-top:0">Profil</h3>
     ${PROFILES.map((p) => `<button class="profile-btn${p === profile ? ' on' : ''}" data-profile="${esc(p)}"><span class="avatar">${esc(p[0])}</span>${esc(p)}${p === profile ? '<span class="badge ok" style="margin-left:auto">Actuel</span>' : ''}</button>`).join('')}
-    <h3>Mes stocks</h3>
-    <div class="card" id="locList">${locs.map((l) => locRow(l)).join('')}</div>
-    <button class="btn ghost" id="addLoc" style="margin-top:10px">+ Ajouter un stock</button>
-    <button class="btn" id="saveLocs" style="margin-top:10px">Enregistrer les stocks</button>
-    <p class="hint">Par exemple : Frigo, Congélateur, Placard, Cave, Cellier… Les changements valent pour tous les téléphones.</p>`);
+    ${SETTING_LISTS.map((l, i) => `<details class="set-list">
+      <summary><span>${l.title}</span><small>${l.list().length}</small>${ICON_CHEVRON}</summary>
+      <div class="card" data-list="${i}">${l.list().map((v) => locRow(v, l.placeholder)).join('')}</div>
+      <button class="btn ghost" data-addrow="${i}" style="margin-top:10px">+ Ajouter ${l.item}</button>
+      <button class="btn" data-savelist="${i}" style="margin-top:10px">Enregistrer</button>
+      <p class="hint">${l.hint}</p>
+    </details>`).join('')}
+    <p class="hint" style="margin-top:16px">Les changements valent pour tous les téléphones.</p>`);
   bg.addEventListener('click', async (e) => {
-    if (e.target.closest('#addLoc')) {
-      $('#locList').insertAdjacentHTML('beforeend', locRow(''));
-      $('#locList').lastElementChild.querySelector('input').focus();
+    const add = e.target.closest('[data-addrow]');
+    if (add) {
+      const card = bg.querySelector(`[data-list="${add.dataset.addrow}"]`);
+      card.insertAdjacentHTML('beforeend', locRow('', SETTING_LISTS[add.dataset.addrow].placeholder));
+      card.lastElementChild.querySelector('input').focus();
       return;
     }
     const del = e.target.closest('[data-del]');
     if (del) { del.closest('.loc-row').remove(); return; }
     const mv = e.target.closest('[data-up]');
     if (mv) { const row = mv.closest('.loc-row'); if (row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling); return; }
-    if (e.target.closest('#saveLocs')) {
+    const save = e.target.closest('[data-savelist]');
+    if (save) {
       if (needSync()) return;
-      const noms = [...bg.querySelectorAll('.loc-row input')].map((i) => i.value.trim()).filter(Boolean);
-      if (!noms.length) { toast('Garde au moins un stock'); return; }
-      const btn = e.target.closest('#saveLocs'); btn.disabled = true;
+      const l = SETTING_LISTS[save.dataset.savelist];
+      // Sans doublons, même écrits différemment (majuscules, accents)
+      const noms = [...bg.querySelectorAll(`[data-list="${save.dataset.savelist}"] input`)].map((x) => x.value.trim()).filter(Boolean)
+        .filter((n, i, all) => all.findIndex((x) => norm(x) === norm(n)) === i);
+      if (!noms.length) { toast(`Garde au moins ${l.item}`); return; }
+      save.disabled = true;
       try {
-        await send({ action: 'setEmplacements', noms });
-        data.Emplacements = noms.map((n) => ({ 'Nom': n })); store.set('data', data);
-        bg.remove(); render(); toast('Stocks enregistrés');
-      } catch { btn.disabled = false; toast('Pas de réseau : réessaie'); }
+        await send({ action: 'setListe', onglet: l.tab, noms });
+        data[l.tab] = noms.map((n) => ({ 'Nom': n })); store.set('data', data);
+        save.closest('details').querySelector('small').textContent = noms.length;
+        render(); toast(l.saved);
+      } catch { toast('Pas de réseau : réessaie'); }
+      save.disabled = false;
     }
   });
 }
-function locRow(name) {
-  return `<div class="row loc-row"><input value="${esc(name)}" placeholder="Nom du stock" maxlength="30">
+const SETTING_LISTS = [
+  { tab: 'Emplacements', title: 'Mes stocks', item: 'un stock', saved: 'Stocks enregistrés', placeholder: 'Nom du stock', list: locations, hint: 'Par exemple : Frigo, Congélateur, Placard, Cave, Cellier…' },
+  { tab: 'Catégories', title: 'Catégories', item: 'une catégorie', saved: 'Catégories enregistrées', placeholder: 'Nom de la catégorie', list: categories, hint: 'Rayons de la liste de courses et sous-catégories des stocks.' },
+  { tab: 'Unités', title: 'Unités', item: 'une unité', saved: 'Unités enregistrées', placeholder: 'Unité', list: units, hint: 'Proposées pour les quantités des courses et du stock.' },
+];
+function locRow(name, placeholder) {
+  return `<div class="row loc-row"><input value="${esc(name)}" placeholder="${esc(placeholder)}" maxlength="30">
     <button class="icon-btn" data-up aria-label="Monter"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
     <button class="icon-btn" data-del aria-label="Supprimer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
 }
@@ -852,7 +889,6 @@ function openAddStock() {
   const locs = locations();
   let loc = locs.includes(stockLoc) ? stockLoc : locs[0];
   const items = stockItems();
-  const cats = [...new Set(items.map((s) => s['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
   const names = [...new Set(items.map((s) => s['Produit']))].sort((a, b) => a.localeCompare(b, 'fr'));
   const bg = openSheet(`<h2>Ajouter au stock</h2>
     <form id="stockForm">
@@ -860,12 +896,11 @@ function openAddStock() {
       <datalist id="stockNames">${names.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="field-row">
         <label class="field"><span>Quantité</span><input name="quantite" inputmode="decimal" placeholder="1"></label>
-        <label class="field"><span>Unité</span><input name="unite" placeholder="pots, kg, L…"></label>
+        <label class="field"><span>Unité</span>${selectHTML('unite', units(), '', '—')}</label>
       </div>
       <span class="field"><span>Stock</span></span>
       <div class="chips" id="addLoc">${locs.map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-aloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
-      <label class="field"><span>Catégorie</span><input name="categorie" list="stockCats" placeholder="Ex. Produits laitiers"></label>
-      <datalist id="stockCats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <label class="field"><span>Catégorie</span>${selectHTML('categorie', categories(), 'Autre')}</label>
       <label class="field"><span>Date limite (facultatif)</span><input name="dlc" type="date"></label>
       <button class="btn" type="submit">Ajouter</button>
     </form>`);
@@ -875,8 +910,8 @@ function openAddStock() {
   f.produit.addEventListener('change', () => {
     const s = items.find((x) => norm(x['Produit']) === norm(f.produit.value));
     if (!s) return;
-    if (!f.categorie.value) f.categorie.value = s['Catégorie'] || '';
-    if (!f.unite.value) f.unite.value = s['Unité'] || '';
+    f.categorie.outerHTML = selectHTML('categorie', categories(), s['Catégorie'] || 'Autre');
+    if (!f.unite.value) f.unite.outerHTML = selectHTML('unite', units(), s['Unité'], '—');
   });
   bg.addEventListener('click', (e) => {
     const c = e.target.closest('[data-aloc]');
@@ -918,7 +953,6 @@ function openStockEdit(key) {
   if (!s) return;
   const locs = locations();
   let loc = s['Emplacement'];
-  const cats = [...new Set(stockItems().map((x) => x['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
   const bg = openSheet(`<h2>${esc(s['Produit'])}</h2>
     <form id="stockEdit">
       <label class="field"><span>Nom</span><input name="produit" value="${esc(s['Produit'])}" required autocomplete="off"></label>
@@ -929,13 +963,12 @@ function openStockEdit(key) {
         <button type="button" data-step="1" aria-label="Plus">+</button>
       </div>
       <div class="field-row">
-        <label class="field"><span>Unité</span><input name="unite" value="${esc(s['Unité'])}" placeholder="pots, kg, L…" autocomplete="off"></label>
+        <label class="field"><span>Unité</span>${selectHTML('unite', units(), s['Unité'], '—')}</label>
         <label class="field"><span>Date limite</span><input name="dlc" type="date" value="${isoDate(s._dlc)}"></label>
       </div>
       <span class="field"><span>Stock</span></span>
       <div class="chips">${[...new Set([...locs, loc])].map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-eloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
-      <label class="field"><span>Catégorie</span><input name="categorie" list="editCats" value="${esc(s['Catégorie'])}" autocomplete="off"></label>
-      <datalist id="editCats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <label class="field"><span>Catégorie</span>${selectHTML('categorie', categories(), s['Catégorie'] || 'Autre')}</label>
       <button class="btn" type="submit">Enregistrer</button>
       <div class="field-row" style="margin-top:10px">
         <button type="button" class="btn ghost" data-tocourses>${ICON_PLUS.replace(/22/g, '18')} Courses</button>
@@ -990,16 +1023,14 @@ function openStockEdit(key) {
 
 function openAddCourse() {
   if (needSync()) return;
-  const cats = [...new Set(data.Courses.map((c) => c['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
   const bg = openSheet(`<h2>Ajouter à la liste</h2>
     <form id="addForm">
       <label class="field"><span>Produit</span><input name="produit" required autocomplete="off" placeholder="Ex. Lait demi-écrémé"></label>
       <div class="field-row">
         <label class="field"><span>Quantité</span><input name="quantite" inputmode="decimal" placeholder="1"></label>
-        <label class="field"><span>Unité</span><input name="unite" placeholder="L, kg, paquet…"></label>
+        <label class="field"><span>Unité</span>${selectHTML('unite', units(), '', '—')}</label>
       </div>
-      <label class="field"><span>Catégorie</span><input name="categorie" list="catList" placeholder="Ex. Produits laitiers"></label>
-      <datalist id="catList">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <label class="field"><span>Catégorie</span>${selectHTML('categorie', categories(), 'Autre')}</label>
       <label class="toggle-row card" style="margin-bottom:14px"><span>Prioritaire</span><span class="switch" id="prioSwitch"></span></label>
       <button class="btn" type="submit">Ajouter</button>
     </form>`);
@@ -1233,7 +1264,7 @@ function openQtySheet(name) {
         <input name="q" inputmode="decimal" value="${esc(c['Quantité'])}" placeholder="1" autocomplete="off">
         <button type="button" data-step="1" aria-label="Plus">+</button>
       </div>
-      <label class="field"><span>Unité</span><input name="u" value="${esc(c['Unité'])}" placeholder="L, kg, g, pièces, paquet…" autocomplete="off"></label>
+      <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '—')}</label>
       <button class="btn" type="submit">Enregistrer</button>
     </form>`);
   const q = bg.querySelector('[name=q]'), u = bg.querySelector('[name=u]');

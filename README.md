@@ -19,7 +19,7 @@ Appli web de la maison : stock (frigo, congélateur, placard… paramétrables),
 - **iPhone (Safari)** : ouvrir l'URL, bouton Partager > « Sur l'écran d'accueil ».
 - **Android (Chrome)** : ouvrir l'URL, menu ⋮ > « Ajouter à l'écran d'accueil ».
 
-Au premier lancement, choisir son profil. L'initiale en haut à droite ouvre les réglages (profil, liste des stocks).
+Au premier lancement, choisir son profil. L'initiale en haut à droite ouvre les réglages : profil, listes des stocks, des catégories et des unités (onglets Emplacements, Catégories, Unités du Sheets).
 
 ## Fonctionnement
 

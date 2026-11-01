@@ -57,11 +57,11 @@ Lis l'image ${file} (outil Read), puis réponds UNIQUEMENT avec un objet JSON, s
 
 Règles :
 - Noms de produits simples et lisibles en français (« Lait demi-écrémé », pas « LT 1/2 ECR UHT »). Réutilise exactement le nom d'un produit existant quand c'est le même.
-- Catégories : Produits laitiers, Fruits & légumes, Viande, Poisson, Frais, Surgelés, Épicerie, Boulangerie, Boissons, Hygiène (papier toilette, savon…), Entretien (lessive, éponges…), Autre.
+- Catégorie : exactement une de celles-ci : ${(ctx.categories || []).join(', ') || 'Produits laitiers, Fruits & légumes, Viande, Poisson, Frais, Surgelés, Épicerie, Boulangerie, Boissons, Hygiène, Entretien, Autre'} (papier toilette, savon → Hygiène ; lessive, éponges → Entretien).
 - Emplacements possibles : ${ctx.emplacements.join(', ')}.
 - Produits déjà en stock (nom | emplacement) : ${ctx.stock.map((s) => `${s['Produit']} | ${s['Emplacement']}`).join(' ; ')}.
   Si un article correspond à l'un d'eux (même au singulier/pluriel ou avec une variante de marque), réutilise ce nom ET cet emplacement pour que les quantités s'additionnent.
-- Quantité numérique quand c'est possible, unité courte (L, kg, g, pièces, paquet, pot, boîte…).
+- Quantité numérique quand c'est possible. Unité : exactement une de celles-ci, ou "" : ${(ctx.unites || []).join(', ') || 'pièces, g, kg, ml, cl, L, paquet, pot, boîte, bouteille, sachet, tranches'}.
 - DLC au format AAAA-MM-JJ seulement si elle est lisible, sinon "".
 - Ne range pas dans le stock ce qui n'est pas de la nourriture ou un produit ménager (sacs, consigne, remises).
 `;
