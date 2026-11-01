@@ -289,6 +289,8 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .chips.scroll::-webkit-scrollbar { display: none; }
 .chip { white-space: nowrap; }
 .chip .n { opacity: 0.65; font-weight: 500; margin-left: 4px; }
+.chip.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+.chip.warn.on { background: var(--warn); color: #fff; }
 .hint-swipe { color: var(--muted); font-size: 12px; margin: 0 4px 14px; display: flex; justify-content: space-between; gap: 8px; }
 .group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
 .group-toggle svg { transition: transform 0.2s; }
@@ -396,6 +398,7 @@ nav .ico { position: relative; height: 24px; }
   <header>
     <h1 id="title">Stock</h1>
     <div class="header-actions">
+      <button class="icon-btn" id="actionBtn2" aria-label="Ajouter" hidden></button>
       <button class="icon-btn" id="actionBtn" aria-label="Ajouter" hidden></button>
       <button class="icon-btn" id="refreshBtn" aria-label="Actualiser">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
@@ -498,6 +501,7 @@ let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente 
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
 let localCourseRemovals = store.get('localCourseRemovals', []); // idem pour la liste de courses
 let pendingQty = store.get('pendingQty', {});  // quantités modifiées, en attente de confirmation
+let localStockAdds = store.get('localStockAdds', []); // produits ajoutés au stock, en attente de confirmation
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
@@ -601,6 +605,8 @@ function reconcile() {
     if (!item || (String(item['Quantité']) === String(q.q) && String(item['Unité']) === String(q.u)) || now - q.at > 600000) delete pendingQty[k];
   }
   store.set('pendingQty', pendingQty);
+  localStockAdds = localStockAdds.filter((a) => !inStockKeys.has(stockKey(a)) && now - a._at < 600000);
+  store.set('localStockAdds', localStockAdds);
   const ids = new Set(data.Tickets.map((t) => t['ID']));
   myUploads = myUploads.filter((u) => !ids.has(u.id) && now - u.at < 600000);
   store.set('myUploads', myUploads);
@@ -769,6 +775,68 @@ function locRow(name) {
     <button class="icon-btn" data-del aria-label="Supprimer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
 }
 
+function openAddStock() {
+  if (needSync()) return;
+  const locs = locations();
+  let loc = locs.includes(stockLoc) ? stockLoc : locs[0];
+  const items = stockItems();
+  const cats = [...new Set(items.map((s) => s['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const names = [...new Set(items.map((s) => s['Produit']))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const bg = openSheet(`<h2>Ajouter au stock</h2>
+    <form id="stockForm">
+      <label class="field"><span>Produit</span><input name="produit" list="stockNames" required autocomplete="off" placeholder="Ex. Yaourts nature"></label>
+      <datalist id="stockNames">${names.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="field-row">
+        <label class="field"><span>Quantité</span><input name="quantite" inputmode="decimal" placeholder="1"></label>
+        <label class="field"><span>Unité</span><input name="unite" placeholder="pots, kg, L…"></label>
+      </div>
+      <span class="field"><span>Stock</span></span>
+      <div class="chips" id="addLoc">${locs.map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-aloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
+      <label class="field"><span>Catégorie</span><input name="categorie" list="stockCats" placeholder="Ex. Produits laitiers"></label>
+      <datalist id="stockCats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      <label class="field"><span>Date limite (facultatif)</span><input name="dlc" type="date"></label>
+      <button class="btn" type="submit">Ajouter</button>
+    </form>`);
+  setTimeout(() => bg.querySelector('[name=produit]').focus(), 250);
+  const f = bg.querySelector('#stockForm');
+  // Produit déjà connu : on reprend sa catégorie et son unité
+  f.produit.addEventListener('change', () => {
+    const s = items.find((x) => norm(x['Produit']) === norm(f.produit.value));
+    if (!s) return;
+    if (!f.categorie.value) f.categorie.value = s['Catégorie'] || '';
+    if (!f.unite.value) f.unite.value = s['Unité'] || '';
+  });
+  bg.addEventListener('click', (e) => {
+    const c = e.target.closest('[data-aloc]');
+    if (!c) return;
+    loc = c.dataset.aloc;
+    bg.querySelectorAll('[data-aloc]').forEach((x) => x.classList.toggle('on', x === c));
+  });
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const it = {
+      produit: f.produit.value.trim(), quantite: f.quantite.value.trim().replace(',', '.') || '1', unite: f.unite.value.trim(),
+      categorie: f.categorie.value.trim() || 'Autre', emplacement: loc, dlc: f.dlc.value,
+    };
+    if (!it.produit) return;
+    bg.remove();
+    const row = { 'Produit': it.produit, 'Catégorie': it.categorie, 'Quantité': it.quantite, 'Unité': it.unite, 'Emplacement': it.emplacement, 'DLC': it.dlc, _at: Date.now() };
+    localStockAdds.push(row);
+    store.set('localStockAdds', localStockAdds);
+    render();
+    try {
+      await send({ action: 'addStock', items: [it] });
+      toast(`${it.produit} ajouté · ${it.emplacement}`);
+      refresh();
+    } catch {
+      localStockAdds = localStockAdds.filter((a) => a !== row);
+      store.set('localStockAdds', localStockAdds);
+      render();
+      toast('Pas de réseau : produit non ajouté');
+    }
+  });
+}
+
 function openAddCourse() {
   if (needSync()) return;
   const cats = [...new Set(data.Courses.map((c) => c['Catégorie']).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
@@ -853,30 +921,32 @@ const marked = new Set(); // produits glissés vers la gauche, en attente de val
 
 function stockItems() {
   const gone = new Set(localRemovals.map((r) => r.key));
-  return data.Stock.filter((s) => s['Produit'] && !gone.has(stockKey(s))).map((s) => {
+  const known = new Set(data.Stock.map(stockKey));
+  return data.Stock.concat(localStockAdds.filter((a) => !known.has(stockKey(a))))
+    .filter((s) => s['Produit'] && !gone.has(stockKey(s))).map((s) => {
     const d = parseDate(s['DLC']);
     return { ...s, _key: stockKey(s), _dlc: d, _days: d ? daysUntil(d) : null };
   });
 }
 
+// Filtre « À consommer » : DLC dans moins de DLC_ALERT_DAYS jours, ou dépassée
+const URGENT = '__urgent';
+const isUrgent = (s) => s._days !== null && s._days < DLC_ALERT_DAYS;
+
 function viewStock() {
   const items = stockItems();
   let html = viewUploads();
   if (!items.length) return html + empty('Rien en stock', 'Prends en photo un ticket ou un placard pour remplir le stock.');
-  const urgent = items.filter((s) => s._days !== null && s._days < DLC_ALERT_DAYS);
-  if (urgent.length) {
-    urgent.sort((a, b) => a._days - b._days);
-    const names = urgent.slice(0, 3).map((s) => esc(s['Produit'])).join(', ') + (urgent.length > 3 ? ` et ${urgent.length - 3} autre${urgent.length > 4 ? 's' : ''}` : '');
-    html += `<div class="alert"><span>⚠</span><span>${urgent.length === 1 ? '1 produit' : urgent.length + ' produits'} à consommer rapidement : ${names}</span></div>`;
-  }
+  const urgent = items.filter(isUrgent);
   const counts = groupBy(items, 'Emplacement', locations());
-  if (stockLoc !== 'all' && !counts.some(([l]) => l === stockLoc)) stockLoc = 'all';
+  if (stockLoc === URGENT ? !urgent.length : stockLoc !== 'all' && !counts.some(([l]) => l === stockLoc)) stockLoc = 'all';
   html += `<label class="search">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input type="search" id="stockSearch" placeholder="Rechercher un produit" value="${esc(stockSearch)}" autocomplete="off" enterkeyhint="search">
     </label>
     <div class="chips scroll">
       <button class="chip${stockLoc === 'all' ? ' on' : ''}" data-sloc="all">Tout<span class="n">${items.length}</span></button>
+      ${urgent.length ? `<button class="chip warn${stockLoc === URGENT ? ' on' : ''}" data-sloc="${URGENT}">⚠ À consommer<span class="n">${urgent.length}</span></button>` : ''}
       ${counts.map(([l, list]) => `<button class="chip${stockLoc === l ? ' on' : ''}" data-sloc="${esc(l)}">${esc(l)}<span class="n">${list.length}</span></button>`).join('')}
     </div>
     ${store.get('swipeHint', true) ? '<div class="hint-swipe"><span>← Glisser pour supprimer</span><span>Glisser pour ajouter aux courses →</span></div>' : ''}
@@ -887,12 +957,13 @@ function viewStock() {
 function stockListHTML(items = stockItems()) {
   const q = norm(stockSearch);
   let list = items;
-  if (stockLoc !== 'all') list = list.filter((s) => norm(s['Emplacement']) === norm(stockLoc));
+  if (stockLoc === URGENT) list = list.filter(isUrgent);
+  else if (stockLoc !== 'all') list = list.filter((s) => norm(s['Emplacement']) === norm(stockLoc));
   if (q) list = list.filter((s) => norm(s['Produit'] + ' ' + s['Catégorie']).includes(q));
   if (!list.length) return empty('Aucun produit', q ? `Rien ne correspond à « ${stockSearch} ».` : 'Ce stock est vide.');
   let html = '';
   for (const [loc, inLoc] of groupBy(list, 'Emplacement', locations())) {
-    const closed = !q && collapsed[loc];
+    const closed = !q && stockLoc !== URGENT && collapsed[loc];
     html += `<div class="group"><h2><button class="group-toggle${closed ? ' closed' : ''}" data-collapse="${esc(loc)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       ${esc(loc)}<span class="cnt">${inLoc.length}</span></button></h2>`;
@@ -1286,9 +1357,9 @@ window.addEventListener('popstate', () => {
 
 // ---- Rendu ----
 const VIEWS = {
-  stock: ['Stock', viewStock, ['Envoyer une photo', ICON_CAMERA, openPhotoSheet]],
-  courses: ['Courses', viewCourses, ['Ajouter un produit', ICON_PLUS, openAddCourse]],
-  recettes: ['Recettes', viewRecettes, null],
+  stock: ['Stock', viewStock, [['Ajouter au stock', ICON_PLUS, openAddStock], ['Envoyer une photo', ICON_CAMERA, openPhotoSheet]]],
+  courses: ['Courses', viewCourses, [['Ajouter un produit', ICON_PLUS, openAddCourse]]],
+  recettes: ['Recettes', viewRecettes, []],
 };
 
 function render() {
@@ -1298,13 +1369,15 @@ function render() {
     return;
   }
   $('#welcome').hidden = true; $('#app').hidden = false;
-  const [title, view, action] = VIEWS[tab] || VIEWS.stock;
+  const [title, view, actions] = VIEWS[tab] || VIEWS.stock;
   $('#title').textContent = title;
   document.title = title;
   $('#profileBtn .avatar').textContent = profile[0];
-  const ab = $('#actionBtn');
-  ab.hidden = !action;
-  if (action) { ab.setAttribute('aria-label', action[0]); ab.innerHTML = action[1]; ab.onclick = action[2]; ab.style.color = 'var(--accent)'; }
+  ['#actionBtn', '#actionBtn2'].forEach((sel, i) => {
+    const ab = $(sel), action = actions[i];
+    ab.hidden = !action;
+    if (action) { ab.setAttribute('aria-label', action[0]); ab.innerHTML = action[1]; ab.onclick = action[2]; ab.style.color = 'var(--accent)'; }
+  });
   // Pendant la saisie d'une recherche, on ne redessine que la liste pour garder le clavier ouvert
   if (tab === 'stock' && document.activeElement?.id === 'stockSearch' && $('#stockList')) $('#stockList').innerHTML = stockListHTML();
   else $('#view').innerHTML = view();

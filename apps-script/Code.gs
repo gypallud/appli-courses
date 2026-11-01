@@ -3,7 +3,7 @@
  * À coller dans Extensions > Apps Script du Google Sheets « Appli Courses – Base de données ».
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
- * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, removeStock, setEmplacements, upload.
+ * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, removeStock, setEmplacements, upload.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
@@ -74,6 +74,33 @@ const ACTIONS = {
         }
       });
       return { added };
+    },
+  },
+
+  addStock: {
+    run(b) {
+      const t = table('Stock');
+      const today = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      (b.items || []).forEach((it) => {
+        if (!it.produit) return;
+        const r = t.findWhere((row) => same(row['Produit'], it.produit) && same(row['Emplacement'], it.emplacement));
+        if (r >= 0) {
+          // Même produit au même endroit : on additionne les quantités
+          const cur = parseFloat(String(t.get(r, 'Quantité')).replace(',', '.'));
+          const add = parseFloat(String(it.quantite).replace(',', '.'));
+          t.set(r, 'Quantité', !isNaN(cur) && !isNaN(add) ? cur + add : it.quantite);
+          if (it.unite) t.set(r, 'Unité', it.unite);
+          if (it.dlc) t.set(r, 'DLC', it.dlc);
+          t.set(r, 'Dernière MAJ', today);
+        } else {
+          t.append({
+            'Produit': it.produit, 'Catégorie': it.categorie || 'Autre', 'Quantité': it.quantite || '',
+            'Unité': it.unite || '', 'Emplacement': it.emplacement || '', "Date d'ajout": today,
+            'DLC': it.dlc || '', 'Dernière MAJ': today,
+          });
+        }
+      });
+      return {};
     },
   },
 
