@@ -1,0 +1,6 @@
+{
+  "syncUrl": "https://script.google.com/macros/s/XXXX/exec",
+  "key": "clé affichée par la fonction installer() dans Apps Script",
+  "model": "sonnet",
+  "pollSeconds": 15
+}

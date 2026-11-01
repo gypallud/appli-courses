@@ -1,56 +1,70 @@
 # Appli Courses
 
-Appli web de la maison : stock (frigo, congélateur, placard), liste de courses commune et recettes.
+Appli web de la maison : stock (frigo, congélateur, placard… paramétrables), liste de courses commune et recettes.
 100 % gratuite : une page statique sur GitHub Pages qui lit le Google Sheets « Appli Courses – Base de données ».
+
+**Appli :** https://gypallud.github.io/appli-courses/
 
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Toute l'appli (HTML, CSS, JS) |
-| `manifest.json`, `icon*.png`, `icon.svg` | Installation sur l'écran d'accueil |
-| `sw.js` | Ouverture hors ligne (dernières données affichées) |
-| `apps-script/Code.gs` | V2 : script qui enregistre les coches dans le Sheets |
+| `manifest.json`, `icon*.png`, `icon.svg`, `sw.js` | Installation sur l'écran d'accueil, ouverture hors ligne |
+| `apps-script/Code.gs` | Écritures dans le Sheets : coches, ajouts, stocks, réception des photos |
+| `worker/` | Sur le PC : analyse des photos avec Claude Code et mise à jour du Sheets |
 
 ## Installer sur le téléphone
 
-- **Android (Chrome)** : ouvrir l'URL, menu ⋮ > « Ajouter à l'écran d'accueil ».
 - **iPhone (Safari)** : ouvrir l'URL, bouton Partager > « Sur l'écran d'accueil ».
+- **Android (Chrome)** : ouvrir l'URL, menu ⋮ > « Ajouter à l'écran d'accueil ».
 
-Au premier lancement, choisir son profil (Henda ou Gérémy). Il est mémorisé sur le téléphone ; on le change en touchant l'initiale en haut à droite.
+Au premier lancement, choisir son profil. L'initiale en haut à droite ouvre les réglages (profil, liste des stocks).
 
-## Données
+## Fonctionnement
 
-L'appli lit les onglets `Stock`, `Courses` et `Recettes` via l'export CSV public du Sheets.
-Le Sheets doit être partagé en **« Tous les utilisateurs disposant du lien » – Lecteur**.
-Les noms d'onglets et les en-têtes de colonnes doivent rester identiques.
+```
+Téléphone ──photo──> Apps Script ──> Drive « Appli Courses – Photos » + onglet Tickets (En attente)
+                                                        │
+PC (worker, toutes les 15 s, gratuit) <── voit « En attente »
+   └─> Claude Code lit la photo ──> Apps Script met à jour Stock / Historique / Courses ──> Tickets = Traité
+                                                        │
+Téléphone <── l'appli relit le Sheets (toutes les 15 s pendant une analyse)
+```
 
-- **Stock** : alerte si la DLC est dans moins de 3 jours. Dates acceptées : `2026-11-08` ou `08/11/2026`.
-- **Courses** : `Statut` = `À acheter` ou `Acheté`. `Priorité` = `Haute` affiche un point rouge.
-- **Recettes** : `Ingrédients` et `Étapes` séparés par des `;`. `Sans porc` et `Partagée` = `Oui`/`Non`.
+- **Ticket de caisse** : produits ajoutés au stock, prix dans Historique, produits de la liste cochés « Acheté ».
+- **Photo du stock** (on choisit le stock) : inventaire des produits visibles dans ce stock.
+- Si le PC est éteint, les photos attendent et sont traitées au prochain démarrage du worker.
+
+## Onglets du Sheets
+
+- **Stock** : alerte si la DLC est dans moins de 3 jours. Dates `2026-11-08` ou `08/11/2026`.
+- **Courses** : `Statut` = `À acheter` / `Acheté`. `Priorité` = `Haute` affiche un point rouge.
+- **Recettes** : `Ingrédients` et `Étapes` séparés par `;` (ex. `Blancs de poulet 500 g; Courgettes 2`).
+  Colonnes facultatives : `Type`, `Difficulté`, `Coût`, `Préparation (min)`, `Cuisson (min)`, `Image` (URL d'une photo).
   Le profil Henda n'affiche jamais une recette marquée `Sans porc = Non`.
+- **Emplacements**, **Tickets** : créés par le script, gérés par l'appli.
 
-L'appli se rafraîchit à l'ouverture, toutes les minutes, et avec le bouton ⟳.
+## Mise en place (une fois)
 
-## V2 : coches synchronisées entre téléphones
+### 1. Apps Script
+1. Sheets > **Extensions > Apps Script**. Remplacer tout `Code.gs` par [`apps-script/Code.gs`](apps-script/Code.gs). Enregistrer.
+2. Choisir la fonction **installer** dans la liste en haut, cliquer **▶ Exécuter**, autoriser l'accès
+   (« Google n'a pas validé cette application » : Paramètres avancés > Accéder au projet).
+   Le journal affiche la **clé du PC** : la garder.
+3. **Déployer > Nouveau déploiement** > ⚙ **Application Web** — Exécuter en tant que **Moi**, accès **Tout le monde**. Copier l'URL `/exec`.
+4. Mettre cette URL dans `const SYNC_URL = '';` de `index.html` et publier.
 
-Sans cette étape, cocher un produit ne change que le téléphone où l'on coche.
+Modifier le script plus tard : **Déployer > Gérer les déploiements > ✎ > Nouvelle version** (l'URL ne change pas).
 
-1. Ouvrir le Google Sheets > **Extensions > Apps Script**.
-2. Remplacer tout le contenu de `Code.gs` par celui de [`apps-script/Code.gs`](apps-script/Code.gs). Enregistrer.
-3. **Déployer > Nouveau déploiement** > type **Application Web**.
-   - Exécuter en tant que : **Moi**
-   - Qui a accès : **Tout le monde**
-4. Autoriser l'accès (écran « Google n'a pas validé cette application » : Paramètres avancés > Accéder au projet).
-5. Copier l'URL de l'application Web (elle finit par `/exec`).
-6. Dans `index.html`, coller cette URL dans `const SYNC_URL = '';`, puis publier (commit + push).
+### 2. PC
+1. Copier `worker/config.example.json` en `worker/config.json`, y mettre l'URL `/exec` et la clé du PC.
+2. Lancer `worker/start-worker.cmd` (double-clic). Pour un lancement automatique, le placer dans le dossier Démarrage de Windows (`Win+R` > `shell:startup`).
 
-Pour modifier le script plus tard : **Déployer > Gérer les déploiements > ✎ > Nouvelle version**, l'URL reste la même.
+Le worker utilise Claude Code (`claude -p`) avec le compte Claude connecté sur le PC.
 
-## Mettre en ligne une modification
+## Publier une modification
 
 ```bash
 git add -A && git commit -m "…" && git push
 ```
-
-GitHub Pages republie en une minute environ.
