@@ -48,7 +48,10 @@ Téléphone <── l'appli relit le Sheets (toutes les 15 s pendant une analyse
 ## Mise en place (une fois)
 
 ### 1. Apps Script
-1. Sheets > **Extensions > Apps Script**. Remplacer tout `Code.gs` par [`apps-script/Code.gs`](apps-script/Code.gs). Enregistrer.
+1. Sheets > **Extensions > Apps Script**. Remplacer tout `Code.gs` par [`apps-script/Code.gs`](apps-script/Code.gs).
+   Dans ⚙ Paramètres du projet, cocher « Afficher le fichier manifeste "appsscript.json" », puis remplacer `appsscript.json`
+   par [`apps-script/appsscript.json`](apps-script/appsscript.json) : il limite les autorisations au Sheets et aux fichiers
+   créés par le script (sans lui, Google affiche « Cette application est bloquée »). Enregistrer.
 2. Choisir la fonction **installer** dans la liste en haut, cliquer **▶ Exécuter**, autoriser l'accès
    (« Google n'a pas validé cette application » : Paramètres avancés > Accéder au projet).
    Le journal affiche la **clé du PC** : la garder.
