@@ -1,0 +1,54 @@
+{
+  "name": "captur",
+  "productName": "Captur",
+  "version": "1.0.0",
+  "description": "Captur : capture d'écran, annotations, lecture de texte et vidéo pour Windows",
+  "author": "gypallud",
+  "main": "main.js",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "selftest": "electron . --selftest",
+    "icon": "node build-icon.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "koffi": "^3.3.7"
+  },
+  "build": {
+    "appId": "fr.maison.captur",
+    "productName": "Captur",
+    "copyright": "Captur",
+    "directories": { "output": "dist" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "winlist.js",
+      "selftest.js",
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "asarUnpack": ["src/ocr.ps1", "node_modules/koffi/**"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "assets/icon.png",
+      "executableName": "Captur"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Captur",
+      "runAfterFinish": true,
+      "artifactName": "Captur-Setup-${version}.exe"
+    }
+  }
+}

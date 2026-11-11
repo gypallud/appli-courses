@@ -1,3 +1,5 @@
 .claude/
 worker/config.json
 worker/drive/node_modules/
+captur/node_modules/
+captur/dist/

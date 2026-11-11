@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Captur – enregistrement</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font: 13px "Segoe UI", system-ui, sans-serif; user-select: none; }
+  .bar {
+    position: absolute; inset: 6px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 10px 0 14px;
+    background: rgba(24, 26, 33, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    color: #fff;
+    -webkit-app-region: drag;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4d5e; flex: none; }
+  .recording .dot { animation: blink 1.2s infinite; }
+  .paused .dot { background: #ffb020; animation: none; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  #time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; min-width: 52px; }
+  #msg { flex: 1; color: #b8bdc9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button {
+    -webkit-app-region: no-drag;
+    height: 34px; min-width: 34px; padding: 0 10px;
+    border: 0; border-radius: 9px;
+    background: #2e323d; color: #fff;
+    font: inherit; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  button:hover { background: #3a3f4c; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  #stop { background: #ff4d5e; font-weight: 600; }
+  #stop:hover { background: #ff3346; }
+  svg { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar">
+  <span class="dot"></span>
+  <span id="time">3</span>
+  <span id="msg">Début dans…</span>
+  <button id="pause" title="Pause" disabled><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+  <button id="stop" title="Arrêter et enregistrer (Ctrl+Maj+Y)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Arrêter</button>
+  <button id="cancel" title="Annuler sans enregistrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+<script src="recbar.js"></script>
+</body>
+</html>
