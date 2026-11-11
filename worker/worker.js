@@ -1,7 +1,7 @@
 // Analyse les photos envoyées depuis l'appli, sur le PC, avec Claude Code.
 // Surveille l'onglet Tickets (lecture publique, gratuite) et ne lance Claude que quand une photo attend.
-// Usage : node worker/worker.js --once   un passage photos (tâche planifiée à 12 h et 20 h, voir install-taches.ps1)
-//         node worker/worker.js --once --recipes   un passage idées de recettes (12 h 10 et 20 h 10)
+// Usage : node worker/worker.js --once   un passage photos (tâche planifiée à 8 h, 11 h, 14 h, 17 h et 20 h, voir install-taches.ps1)
+//         node worker/worker.js --once --recipes   un passage idées de recettes (10 min après chaque passage)
 //         node worker/worker.js          surveillance continue toutes les pollSeconds
 // Config dans worker/config.json (voir config.example.json).
 
@@ -422,7 +422,7 @@ if (process.argv.includes('--prix')) {
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');
-  // Passage photos (12 h, 20 h) : tickets en attente, puis prix Drive de la liste de courses
+  // Passage photos (8 h, 11 h, 14 h, 17 h, 20 h) : tickets en attente, puis prix Drive de la liste de courses
   tick().then(() => (RECIPES_MODE ? null : refreshPrices().catch((e) => log('Prix Drive :', e.message)))).then(() => log('Terminé.'));
 } else {
   log(`Surveillance des photos toutes les ${POLL_MS / 1000} s. Ctrl+C pour arrêter.`);
