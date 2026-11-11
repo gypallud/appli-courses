@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: blob:; media-src 'self' file: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Captur</title>
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="group">
+    <button id="btnCapture" class="btn primary" title="Capture d'écran (Ctrl+Maj+X)"><i data-icon="capture"></i><span>Capture</span></button>
+    <button id="btnVideo" class="btn rec" title="Enregistrer une vidéo (Ctrl+Maj+Y)"><i data-icon="video"></i><span>Vidéo</span></button>
+  </div>
+  <div class="sep"></div>
+  <div class="group" id="tools"></div>
+  <div class="sep"></div>
+  <div class="group" id="styleGroup">
+    <div id="swatches"></div>
+    <label class="color-pick" title="Autre couleur"><input type="color" id="colorInput" value="#ff3b30"></label>
+    <label class="field" title="Épaisseur du trait">
+      <i data-icon="width"></i>
+      <input type="range" id="widthInput" min="1" max="24" value="5">
+    </label>
+    <label class="field" title="Taille du texte">
+      <i data-icon="text"></i>
+      <select id="fontInput">
+        <option>14</option><option>18</option><option>22</option><option selected>28</option>
+        <option>36</option><option>48</option><option>64</option><option>96</option>
+      </select>
+    </label>
+  </div>
+  <div class="spacer"></div>
+  <div class="group">
+    <button id="btnUndo" class="btn icon" title="Annuler (Ctrl+Z)"><i data-icon="undo"></i></button>
+    <button id="btnRedo" class="btn icon" title="Rétablir (Ctrl+Y)"><i data-icon="redo"></i></button>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <button id="btnCopy" class="btn" title="Copier l'image (Ctrl+C)"><i data-icon="copy"></i><span>Copier</span></button>
+    <button id="btnSave" class="btn" title="Enregistrer sous… (Ctrl+S)"><i data-icon="save"></i><span>Enregistrer</span></button>
+    <button id="btnOcr" class="btn" title="Lire le texte de l'image (Ctrl+T)"><i data-icon="ocr"></i><span>Texte</span></button>
+    <button id="btnSettings" class="btn icon" title="Réglages"><i data-icon="gear"></i></button>
+  </div>
+</header>
+
+<main>
+  <div id="toolOptions" class="tool-options" hidden></div>
+  <section id="stage">
+    <div id="canvasWrap" hidden>
+      <canvas id="canvas"></canvas>
+      <textarea id="textEdit" spellcheck="false" wrap="off" hidden></textarea>
+    </div>
+    <div id="videoWrap" hidden>
+      <video id="player" controls></video>
+      <div class="video-actions">
+        <button id="btnVideoOpen" class="btn"><i data-icon="external"></i><span>Ouvrir avec le lecteur</span></button>
+        <button id="btnVideoReveal" class="btn"><i data-icon="folder"></i><span>Afficher dans le dossier</span></button>
+      </div>
+    </div>
+    <div id="empty">
+      <div class="empty-card">
+        <img src="../assets/icon.png" alt="" width="72" height="72">
+        <h1>Captur</h1>
+        <p>Capturez une zone, une fenêtre ou tout l'écran, annotez, puis copiez ou enregistrez.</p>
+        <div class="empty-actions">
+          <button class="btn primary big" data-start="image"><i data-icon="capture"></i><span>Capture d'écran</span></button>
+          <button class="btn rec big" data-start="video"><i data-icon="video"></i><span>Enregistrer une vidéo</span></button>
+        </div>
+        <ul id="shortcutList" class="shortcuts"></ul>
+      </div>
+    </div>
+  </section>
+
+  <aside id="library">
+    <div class="lib-head">
+      <h2>Bibliothèque</h2>
+      <button id="btnFolder" class="btn small" title="Ouvrir le dossier des captures"><i data-icon="folder"></i><span>Dossier</span></button>
+    </div>
+    <div id="libList"></div>
+  </aside>
+</main>
+
+<footer class="status">
+  <span id="statusLeft"></span>
+  <span class="spacer"></span>
+  <span id="statusHint"></span>
+  <button id="zoomLabel" class="zoom" title="Ajuster à la fenêtre (Ctrl+0)">100 %</button>
+</footer>
+
+<div id="settingsPanel" class="popover" hidden>
+  <h3>Réglages</h3>
+  <label class="check"><input type="checkbox" id="setAutoCopy"> Copier automatiquement chaque capture</label>
+  <label class="check"><input type="checkbox" id="setSystemAudio"> Vidéo : son de l'ordinateur</label>
+  <label class="check"><input type="checkbox" id="setMic"> Vidéo : micro</label>
+  <h3>Raccourcis</h3>
+  <ul id="shortcutList2" class="shortcuts"></ul>
+  <h3>Dossier des captures</h3>
+  <p id="libPath" class="path"></p>
+</div>
+
+<dialog id="ocrDialog">
+  <h3>Texte trouvé dans l'image</h3>
+  <textarea id="ocrText" spellcheck="false"></textarea>
+  <div class="dialog-actions">
+    <button id="ocrCopy" class="btn primary"><i data-icon="copy"></i><span>Copier</span></button>
+    <button id="ocrClose" class="btn">Fermer</button>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+<script src="editor.js"></script>
+</body>
+</html>
