@@ -559,7 +559,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 21; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 22; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1329,45 +1329,66 @@ async function confirmDeleteCourses() {
 // Pas du bouton + / − selon l'unité
 const qtyStep = (u) => (/^(g|ml)$/i.test(u) ? 50 : /^(kg|l|cl)$/i.test(u) ? 0.5 : 1);
 
+// Fiche d'un produit de la liste de courses : nom, quantité, unité, catégorie, priorité, habituel
 function openQtySheet(name) {
   if (needSync()) return;
   const c = courses().find((x) => x['Produit'] === name);
   if (!c) return;
-  const bg = openSheet(`<h2>${esc(name)}</h2>
+  const high = norm(c['Priorité']) === 'haute';
+  const bg = openSheet(`<h2>Modifier le produit</h2>
     <form id="qtyForm">
+      <label class="field"><span>Nom</span><input name="nom" value="${esc(name)}" required autocomplete="off"></label>
+      <span class="field"><span>Quantité</span></span>
       <div class="qty-stepper">
         <button type="button" data-step="-1" aria-label="Moins">−</button>
         <input name="q" inputmode="decimal" value="${esc(c['Quantité'])}" placeholder="1" autocomplete="off">
         <button type="button" data-step="1" aria-label="Plus">+</button>
       </div>
-      <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '—')}</label>
+      <div class="field-row">
+        <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '—')}</label>
+        <label class="field"><span>Catégorie</span>${selectHTML('cat', categories(), c['Catégorie'] || 'Autre')}</label>
+      </div>
+      <div class="card toggle-row" data-prio style="cursor:pointer;margin-bottom:12px"><span>Prioritaire</span><span class="switch${high ? ' on' : ''}"></span></div>
       <button class="btn" type="submit">Enregistrer</button>
       ${habToggleHTML(name)}
     </form>`);
-  const q = bg.querySelector('[name=q]'), u = bg.querySelector('[name=u]');
+  const f = bg.querySelector('#qtyForm'), q = f.q, u = f.u;
   bg.addEventListener('click', (e) => {
     const ht = e.target.closest('[data-habtoggle]');
-    if (ht) { const on = !isHabituel(name); ht.querySelector('.switch').classList.toggle('on', on); setHabituel(name, on, { categorie: c['Catégorie'] }); return; }
-    const s = e.target.closest('[data-step]');
-    if (!s) return;
+    if (ht) { const on = !isHabituel(name); ht.querySelector('.switch').classList.toggle('on', on); setHabituel(name, on, { categorie: f.cat.value }); return; }
+    const pr = e.target.closest('[data-prio]');
+    if (pr) { pr.querySelector('.switch').classList.toggle('on'); return; }
+    const st = e.target.closest('[data-step]');
+    if (!st) return;
     const step = qtyStep(u.value.trim());
-    const v = Math.max(0, Math.round(((num(q.value) ?? 0) + step * +s.dataset.step) * 100) / 100);
+    const v = Math.max(0, Math.round(((num(q.value) ?? 0) + step * +st.dataset.step) * 100) / 100);
     q.value = String(v).replace('.', ',');
   });
-  bg.querySelector('#qtyForm').addEventListener('submit', async (e) => {
+  f.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const quantite = q.value.trim(), unite = u.value.trim();
+    const nouveau = f.nom.value.trim(), quantite = q.value.trim(), unite = u.value.trim(), categorie = f.cat.value.trim() || 'Autre';
+    const priorite = bg.querySelector('[data-prio] .switch').classList.contains('on') ? 'Haute' : 'Moyenne';
+    if (!nouveau) return;
+    if (norm(nouveau) !== norm(name) && courses().some((x) => norm(x['Produit']) === norm(nouveau))) { toast(`« ${nouveau} » est déjà dans la liste`); return; }
     bg.remove();
-    pendingQty[norm(name)] = { q: quantite, u: unite, at: Date.now() };
-    store.set('pendingQty', pendingQty);
+    // Mise à jour immédiate à l'écran, le tableur suit
+    const rows = [...data.Courses, ...localAdds].filter((x) => x['Produit'] === name);
+    const before = rows.map((x) => ({ ...x }));
+    rows.forEach((x) => Object.assign(x, { 'Produit': nouveau, 'Catégorie': categorie, 'Priorité': priorite }));
+    delete pendingQty[norm(name)];
+    pendingQty[norm(nouveau)] = { q: quantite, u: unite, at: Date.now() };
+    if (pending[norm(name)]) { pending[norm(nouveau)] = pending[norm(name)]; delete pending[norm(name)]; }
+    store.set('data', data); store.set('localAdds', localAdds); store.set('pendingQty', pendingQty); store.set('pending', pending);
     render();
     try {
-      await send({ action: 'updateCourse', produit: name, quantite, unite });
-    } catch {
-      delete pendingQty[norm(name)];
-      store.set('pendingQty', pendingQty);
+      await send({ action: 'updateCourse', produit: name, nouveau, quantite, unite, categorie, priorite });
+      if (norm(nouveau) !== norm(name)) refresh();
+    } catch (err) {
+      rows.forEach((x, i) => { for (const k of Object.keys(x)) delete x[k]; Object.assign(x, before[i]); });
+      delete pendingQty[norm(nouveau)];
+      store.set('data', data); store.set('localAdds', localAdds); store.set('pendingQty', pendingQty);
       render();
-      toast('Pas de réseau : quantité non modifiée');
+      toast(/«/.test(err.message || '') ? err.message.replace(/^Error:s*/, '') : 'Pas de réseau : produit non modifié');
     }
   });
 }
@@ -1378,7 +1399,7 @@ function addFromStock(key) {
   if (s) addCourses([{ produit: s['Produit'], quantite: '', unite: '', categorie: s['Catégorie'] || 'Autre' }]);
 }
 
-// Glisser une ligne : ← marque pour suppression ; dans le stock, → ajoute aux courses
+// Glisser une ligne : ← marque pour suppression ; → dans le stock ajoute aux courses, dans les courses ouvre la fiche du produit
 let sw = null;
 let swipedAt = 0;
 const SWIPE_AT = 80;
@@ -1397,7 +1418,7 @@ window.addEventListener('pointermove', (e) => {
     sw.el.classList.add('dragging');
     try { sw.el.setPointerCapture(sw.id); } catch {}
   }
-  sw.dx = Math.max(-140, Math.min(sw.el.dataset.kind === 'stock' ? 140 : 0, dx));
+  sw.dx = Math.max(-140, Math.min(140, dx));
   sw.el.dataset.dir = sw.dx > 0 ? 'right' : 'left';
   sw.row.style.transform = `translateX(${sw.dx}px)`;
 });
@@ -1412,7 +1433,9 @@ function endSwipe() {
   setTimeout(() => { delete el.dataset.dir; }, 200);
   if (Math.abs(dx) < SWIPE_AT) return;
   store.set('swipeHint', false);
-  if (dx < 0) toggleMark(el.dataset.key, el.dataset.kind); else addFromStock(el.dataset.key);
+  if (dx < 0) toggleMark(el.dataset.key, el.dataset.kind);
+  else if (el.dataset.kind === 'stock') addFromStock(el.dataset.key);
+  else { const c = courses().find((x) => norm(x['Produit']) === el.dataset.key); if (c) openQtySheet(c['Produit']); }
 }
 window.addEventListener('pointerup', endSwipe);
 window.addEventListener('pointercancel', endSwipe);
@@ -1663,7 +1686,7 @@ function viewCourses() {
       const by = norm(c['Ajouté par']) === 'habituel' ? '★ Habituel · plus en stock' : c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
       const key = norm(c['Produit']);
       html += `<div class="swipe${markedSets.courses.has(key) ? ' marked' : ''}" data-kind="courses" data-key="${esc(key)}">
-        <div class="swipe-bg"><span class="r">Supprimer ${ICON_TRASH}</span></div>
+        <div class="swipe-bg"><span class="l"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg> Modifier</span><span class="r">Supprimer ${ICON_TRASH}</span></div>
         <div class="row check-row${isSelected(c) ? ' done' : ''}" role="checkbox" aria-checked="${isSelected(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
         <span class="box">${ICON_CHECK}</span>
         <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}${SYNC_URL ? priceLineHTML(c) : ''}</div>

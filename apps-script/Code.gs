@@ -164,8 +164,19 @@ const ACTIONS = {
       const t = table('Courses');
       const r = t.find('Produit', b.produit);
       if (r < 0) throw new Error('produit introuvable');
-      t.set(r, 'Quantité', b.quantite);
-      t.set(r, 'Unité', b.unite);
+      if (b.quantite !== undefined) t.set(r, 'Quantité', b.quantite);
+      if (b.unite !== undefined) t.set(r, 'Unité', b.unite);
+      if (b.categorie) t.set(r, 'Catégorie', b.categorie);
+      if (b.priorite) t.set(r, 'Priorité', b.priorite);
+      // Nouveau nom : l'article Leclerc choisi et ses prix suivent le produit
+      if (b.nouveau && !same(b.nouveau, b.produit)) {
+        if (t.find('Produit', b.nouveau) >= 0) throw new Error('« ' + b.nouveau + ' » est déjà dans la liste');
+        t.set(r, 'Produit', b.nouveau);
+        ['Choix Drive', 'Prix Drive'].forEach((name) => {
+          const o = table(name), k = o.find('Produit', b.produit);
+          if (k >= 0 && o.find('Produit', b.nouveau) < 0) o.set(k, 'Produit', b.nouveau);
+        });
+      }
       return {};
     },
   },
