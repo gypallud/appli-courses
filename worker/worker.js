@@ -98,7 +98,7 @@ Sois honnête sur ta certitude : photo floue, partielle ou ambiguë → "faible"
 Réponds UNIQUEMENT avec un objet JSON, sans texte autour, sans bloc de code, en français :
 {"isPlant":true,"commonName":"Nom courant (ex : Pothos doré)","scientificName":"Nom botanique","confidence":"faible|moyenne|élevée",
 "alternatives":["jusqu'à 3 autres espèces possibles, vide si certain"],
-"avatar":"monstera|broad|palm|spiky|fern (forme du feuillage la plus proche : monstera = grandes feuilles larges, broad = feuilles en pagaie, palm = palmes, spiky = feuilles fines et pointues, fern = fougère ou rosette)",
+"avatar":"monstera|broad|palm|spiky|fern|cactus (forme du feuillage la plus proche : monstera = grandes feuilles larges, broad = feuilles en pagaie, palm = palmes, spiky = feuilles fines et pointues, fern = fougère ou rosette, cactus = plante grasse en colonnes)",
 "light":"directe|indirecte|ombre","waterSummer":7,"waterWinter":12,"fertilizerEvery":21,
 "soil":"terreau recommandé, une phrase","repotting":"fréquence et période de rempotage, une phrase","humidity":"ex : Élevée (60 %)","temperature":"ex : 18 – 25 °C",
 "notes":"un conseil clé ou une particularité (toxicité pour les animaux si pertinent)","healthNote":"état visible de la plante sur la photo, \\"\\" si rien à signaler"}
@@ -116,7 +116,7 @@ function cleanPlant(r) {
     commonName: str(r.commonName), scientificName: str(r.scientificName),
     confidence: pick(r.confidence, ['faible', 'moyenne', 'élevée'], 'moyenne'),
     alternatives: Array.isArray(r.alternatives) ? r.alternatives.map(str).filter(Boolean).slice(0, 3) : [],
-    avatar: pick(r.avatar, ['monstera', 'broad', 'palm', 'spiky', 'fern'], 'monstera'),
+    avatar: pick(r.avatar, ['monstera', 'broad', 'palm', 'spiky', 'fern', 'cactus'], 'monstera'),
     light: pick(r.light, ['directe', 'indirecte', 'ombre'], 'indirecte'),
     waterSummer: int(r.waterSummer, 1, 60, 7), waterWinter: int(r.waterWinter, 1, 90, 12), fertilizerEvery: int(r.fertilizerEvery, 0, 120, 21),
     soil: str(r.soil), repotting: str(r.repotting), humidity: str(r.humidity), temperature: str(r.temperature),

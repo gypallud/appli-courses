@@ -1,4 +1,4 @@
-import { addDays, today, toISO } from '../utils/dates';
+import { today, toISO } from '../utils/dates';
 
 export const AVATAR_STYLES = {
   monstera: 'Feuilles larges',
@@ -6,114 +6,161 @@ export const AVATAR_STYLES = {
   palm: 'Palmes',
   spiky: 'Feuilles fines',
   fern: 'Fougère',
+  cactus: 'Cactus',
 };
 
 export const AVATAR_COLORS = ['#4f7a52', '#3d6b4f', '#6f8f4a', '#2f6a5e', '#7d8f3c', '#557a6b'];
 
-const daysAgo = (n) => toISO(addDays(today(), -n));
 
-/** 5 plantes de démonstration avec leurs paramètres optimaux. */
-export function createDemoPlants() {
+/**
+ * Les plantes de la maison, identifiées à partir des photos du 11 novembre 2026.
+ * Emplacements et dates d'arrosage à ajuster dans chaque fiche.
+ */
+export function createStarterPlants() {
+  const now = toISO(today());
+  const base = { photo: '', lastWatered: now, lastFertilized: '', pendingIdent: '', identInfo: null };
   return [
     {
-      id: 'demo-monstera',
+      ...base,
+      id: 'mine-bougainvillier',
+      name: 'Bougainvillier',
+      variety: 'Bougainvillea glabra',
+      location: 'Balcon',
+      avatar: 'broad',
+      color: '#4f7a52',
+      light: 'directe',
+      waterSummer: 3,
+      waterWinter: 14,
+      fertilizerEvery: 14,
+      soil: 'Terreau méditerranéen très drainant : universel + 30 % de sable ou de pouzzolane, billes d’argile au fond.',
+      repotting: 'Tous les 2 à 3 ans au printemps. Il fleurit mieux un peu à l’étroit dans son pot.',
+      humidity: 'Faible à moyenne',
+      temperature: 'Hors gel : au-dessus de 5 °C (idéal 15 – 30 °C)',
+      notes:
+        'Plante d’extérieur : en hiver, la protéger (voile d’hivernage ou abri) dès que les nuits passent sous 5 °C, et arroser très peu. ' +
+        'Engrais pour plantes fleuries (riche en potasse) au printemps et en été. Tailler à la fin de l’hiver, avec des gants (épines). ' +
+        'Sur les photos : quelques feuilles jaunies et des feuilles sèches dans le pot, normal à l’automne ; les retirer.',
+    },
+    {
+      ...base,
+      id: 'mine-monstera',
       name: 'Monstera',
-      variety: 'Monstera Deliciosa',
+      variety: 'Monstera deliciosa',
       location: 'Salon',
       avatar: 'monstera',
       color: '#3d6b4f',
-      photo: '',
       light: 'indirecte',
       waterSummer: 7,
       waterWinter: 12,
       fertilizerEvery: 14,
       soil: 'Mélange aroïdées : terreau universel, écorce de pin et perlite (très drainant).',
-      repotting: 'Tous les 2 ans au printemps, dans un pot 3–5 cm plus large. Prévoir un tuteur mousse.',
-      humidity: 'Moyenne à élevée (50–60 %)',
+      repotting: 'Tous les 2 ans au printemps, dans un pot 3 à 5 cm plus large. Un tuteur mousse l’aide à faire de grandes feuilles.',
+      humidity: 'Moyenne à élevée (50 – 60 %)',
       temperature: '18 – 27 °C',
-      lastWatered: daysAgo(6),
-      lastFertilized: daysAgo(40),
-      notes: 'Essuyer les feuilles une fois par mois pour favoriser la photosynthèse.',
+      notes: 'Belle feuille bien découpée et saine sur la photo. Essuyer les feuilles une fois par mois. Toxique pour les chats et les chiens.',
     },
     {
-      id: 'demo-strelitzia',
-      name: 'Oiseau de paradis',
-      variety: 'Strelitzia Nicolai',
-      location: 'Véranda',
-      avatar: 'broad',
-      color: '#4f7a52',
-      photo: '',
-      light: 'directe',
-      waterSummer: 6,
-      waterWinter: 14,
-      fertilizerEvery: 14,
-      soil: 'Terreau riche et drainant : universel + compost + 20 % de sable.',
-      repotting: "Tous les 2–3 ans au printemps. Aime être un peu à l'étroit pour fleurir.",
-      humidity: 'Moyenne (40–60 %)',
-      temperature: '16 – 30 °C',
-      lastWatered: daysAgo(15),
-      lastFertilized: daysAgo(60),
-      notes: 'Les feuilles qui se fendent sont naturelles : elles laissent passer le vent.',
-    },
-    {
-      id: 'demo-areca',
-      name: 'Areca',
-      variety: 'Dypsis lutescens',
-      location: 'Chambre',
-      avatar: 'palm',
+      ...base,
+      id: 'mine-adansonii',
+      name: 'Monstera adansonii',
+      variety: 'Monstera adansonii',
+      location: 'Salon (suspension)',
+      avatar: 'monstera',
       color: '#6f8f4a',
-      photo: '',
       light: 'indirecte',
-      waterSummer: 4,
-      waterWinter: 7,
+      waterSummer: 6,
+      waterWinter: 10,
       fertilizerEvery: 21,
-      soil: "Terreau spécial palmiers, léger, avec billes d'argile au fond du pot.",
-      repotting: 'Tous les 2–3 ans au printemps, sans enterrer davantage le collet.',
-      humidity: 'Élevée (60 % et +)',
-      temperature: '18 – 25 °C',
-      lastWatered: daysAgo(5),
-      lastFertilized: daysAgo(50),
-      notes: "Sensible au calcaire : arroser à l'eau de pluie ou filtrée.",
+      soil: 'Mélange aroïdées léger : terreau, écorce de pin et perlite.',
+      repotting: 'Tous les 2 ans au printemps. On peut bouturer les longues tiges dans l’eau.',
+      humidity: 'Élevée (60 %)',
+      temperature: '18 – 27 °C',
+      notes:
+        'À surveiller : sur la photo, plusieurs feuilles ont des taches jaunes et brunes et des zones décolorées. ' +
+        'Regarder le dessous des feuilles (thrips ou araignées rouges possibles) et lancer le Diagnostic S.O.S. ' +
+        'Retirer les feuilles très abîmées, brumiser, et l’éloigner du soleil direct et du chauffage. Toxique pour les animaux.',
     },
     {
-      id: 'demo-dracaena',
+      ...base,
+      id: 'mine-dracaena',
       name: 'Dragonnier',
-      variety: 'Dracaena Marginata',
-      location: 'Couloir',
+      variety: 'Dracaena marginata',
+      location: 'Salon',
       avatar: 'spiky',
       color: '#2f6a5e',
-      photo: '',
-      light: 'ombre',
+      light: 'indirecte',
       waterSummer: 10,
       waterWinter: 20,
       fertilizerEvery: 30,
       soil: 'Terreau universel + 20 % de sable ou de pouzzolane pour le drainage.',
-      repotting: 'Tous les 2–3 ans au printemps. Croissance lente, peu exigeant.',
+      repotting: 'Tous les 2 à 3 ans au printemps. Croissance lente, peu exigeant.',
       humidity: 'Faible à moyenne',
       temperature: '15 – 25 °C',
-      lastWatered: daysAgo(18),
-      lastFertilized: daysAgo(70),
-      notes: "Craint l'excès d'eau bien plus que la sécheresse.",
+      notes:
+        'Très beau feuillage sur la photo. Quelques pointes brunes : air un peu sec ou eau calcaire, rien de grave (les couper en biais). ' +
+        'Craint l’excès d’eau bien plus que la sécheresse.',
     },
     {
-      id: 'demo-asplenium',
-      name: "Fougère nid d'oiseau",
-      variety: 'Fougère Asplenium nidus',
-      location: 'Salle de bain',
-      avatar: 'fern',
-      color: '#7d8f3c',
-      photo: '',
-      light: 'ombre',
-      waterSummer: 3,
-      waterWinter: 5,
+      ...base,
+      id: 'mine-ctenanthe',
+      name: 'Ctenanthe Grey Star',
+      variety: "Ctenanthe setosa 'Grey Star'",
+      location: 'Salon',
+      avatar: 'broad',
+      color: '#557a6b',
+      light: 'indirecte',
+      waterSummer: 5,
+      waterWinter: 8,
+      fertilizerEvery: 21,
+      soil: 'Terreau léger et riche qui garde un peu d’humidité : universel + perlite + un peu d’écorce.',
+      repotting: 'Tous les 2 ans au printemps.',
+      humidity: 'Élevée (60 % et +)',
+      temperature: '18 – 27 °C',
+      notes:
+        'À surveiller : bords de feuilles bruns et secs sur la photo, signe d’air trop sec ou d’eau calcaire. ' +
+        'Arroser à l’eau de pluie ou filtrée, garder la terre légèrement humide, brumiser ou poser sur des billes d’argile mouillées. ' +
+        'Les feuilles qui s’enroulent indiquent la soif. Non toxique.',
+    },
+    {
+      ...base,
+      id: 'mine-euphorbe',
+      name: 'Euphorbe',
+      variety: 'Euphorbia trigona',
+      location: 'Salon',
+      avatar: 'cactus',
+      color: '#3d6b4f',
+      light: 'directe',
+      waterSummer: 14,
+      waterWinter: 30,
       fertilizerEvery: 30,
-      soil: 'Terreau léger riche en humus, mélange tourbe / écorce pour épiphytes.',
-      repotting: 'Tous les 2 ans au printemps, dans un pot peu profond.',
-      humidity: 'Élevée (60–70 %)',
-      temperature: '16 – 24 °C',
-      lastWatered: daysAgo(4),
-      lastFertilized: daysAgo(45),
-      notes: "Ne jamais verser d'eau au centre de la rosette (risque de pourriture).",
+      soil: 'Terreau pour cactées et plantes grasses, très drainant.',
+      repotting: 'Tous les 2 à 3 ans au printemps, dans un pot lourd (elle devient haute et bascule).',
+      humidity: 'Faible',
+      temperature: '15 – 30 °C (pas en dessous de 10 °C)',
+      notes:
+        'Ce n’est pas un cactus mais une euphorbe : sa sève blanche est toxique et irritante, porter des gants. ' +
+        'Lumière la plus vive possible. Laisser sécher complètement la terre entre deux arrosages.',
+    },
+    {
+      ...base,
+      id: 'mine-epiphyllum',
+      name: 'Cactus arête de poisson',
+      variety: 'Epiphyllum anguliger',
+      location: 'Salon (suspension)',
+      avatar: 'fern',
+      color: '#557a6b',
+      light: 'indirecte',
+      waterSummer: 7,
+      waterWinter: 14,
+      fertilizerEvery: 30,
+      soil: 'Mélange pour épiphytes : terreau + écorce d’orchidée + perlite.',
+      repotting: 'Tous les 2 à 3 ans, après la floraison. Il fleurit mieux un peu serré.',
+      humidity: 'Moyenne à élevée',
+      temperature: '15 – 25 °C',
+      notes:
+        'Cactus de forêt tropicale, pas du désert : lumière vive sans soleil direct, terre jamais détrempée. ' +
+        'Quelques segments jaunis sur la photo : excès d’eau ou trop de soleil, les couper. ' +
+        'Fleurs parfumées à l’automne la nuit ; les segments se bouturent facilement. Non toxique.',
     },
   ];
 }
