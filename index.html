@@ -1388,7 +1388,7 @@ function openQtySheet(name) {
       delete pendingQty[norm(nouveau)];
       store.set('data', data); store.set('localAdds', localAdds); store.set('pendingQty', pendingQty);
       render();
-      toast(/«/.test(err.message || '') ? err.message.replace(/^Error:s*/, '') : 'Pas de réseau : produit non modifié');
+      toast(/«/.test(err.message || '') ? err.message.replace(/^Error:\s*/, '') : 'Pas de réseau : produit non modifié');
     }
   });
 }
