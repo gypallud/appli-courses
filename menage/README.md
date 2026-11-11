@@ -1,7 +1,8 @@
 # Ménage & Maison
 
 Suivi du ménage, des tâches ménagères et de l'entretien de la maison pour Gérémy, Henda et Lucas.
-React 18 + Vite + Tailwind CSS 4, sans serveur : tout est stocké dans le `localStorage` du navigateur.
+React 18 + Vite + Tailwind CSS 4. Les données sont partagées entre les téléphones via le Google Sheets de la maison
+(même Apps Script que l'appli courses), avec une copie sur chaque téléphone pour fonctionner hors ligne.
 
 **Appli :** https://gypallud.github.io/appli-courses/maison/
 
@@ -11,7 +12,21 @@ React 18 + Vite + Tailwind CSS 4, sans serveur : tout est stocké dans le `local
 - **Android (Chrome)** : ouvrir l'URL, menu ⋮ > « Ajouter à l'écran d'accueil » (ou « Installer l'application »).
 
 Elle s'ouvre alors en plein écran, avec son icône, et fonctionne hors ligne.
-Les données restent sur chaque téléphone : pour copier celles d'un téléphone sur un autre, Profil > Exporter puis Importer.
+
+## Synchronisation
+
+- Onglet **Ménage** du Google Sheets : une ligne par élément (tâche, entrée du journal, garantie, référence, profil),
+  avec l'élément en JSON, l'heure de modification et « Supprimé = oui » pour les suppressions. Créé tout seul au premier envoi.
+- Chaque modification s'applique tout de suite sur le téléphone, part moins d'une seconde après (action `menageSync`
+  de `apps-script/Code.gs`), puis le téléphone récupère tout. Synchro aussi au démarrage, toutes les minutes et au retour sur l'appli.
+- Hors ligne, les modifications attendent sur le téléphone (nuage barré + nombre en attente dans l'en-tête) et partent au retour du réseau.
+- Pour un même élément, la modification la plus récente gagne. Chaque « Fait ! » est une entrée de journal à part :
+  deux personnes qui valident en même temps ne perdent rien.
+- Premier téléphone à se connecter (onglet vide) : il envoie ses données. Les suivants abandonnent leurs données locales et prennent celles du tableur.
+- Importer, recharger la démo ou tout effacer s'applique à **tous** les téléphones. Le profil choisi (« qui utilise ce téléphone ») et le thème restent propres à chaque appareil.
+- `VITE_SYNC_URL` (fichier `.env.development.local`) permet de pointer vers un autre serveur pendant les tests ; vide = sans synchro.
+
+Après une modification de `apps-script/Code.gs`, redéployer l'Apps Script (clasp), sinon l'appli affiche « Synchronisation impossible · action inconnue ».
 
 ## Lancer et publier
 

@@ -5,6 +5,7 @@
  *
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
  *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, cookRecipe, clearMenu, setProfil, setHabituel, setDriveChoice, requestIdeas, requestDrive, driveSelect, driveCancel.
+ * Action de l'appli Ménage & Maison (dossier maison/) : menageSync.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
  *   driveProposals, drivePrices, driveDone, fail.
  */
@@ -34,7 +35,11 @@ const HEADERS = {
   // Produits habituels : remis dans la liste de courses quand il n'y en a plus en stock
   Habituels: ['Produit', 'Catégorie', 'Unité', 'Depuis'],
   Profils: ['Profil', 'Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement', 'Refusées'],
+  // Appli « Ménage & Maison » : une ligne par élément (tâche, entrée du journal, garantie, référence, profil).
+  // Données = l'élément en JSON ; Modifié = horodatage (ms) de la dernière modification ; Supprimé = « oui » (gardé pour prévenir les autres téléphones)
+  'Ménage': ['Type', 'ID', 'Nom', 'Données', 'Modifié', 'Supprimé'],
 };
+const MENAGE_TYPES = ['tasks', 'history', 'warranties', 'materials', 'profiles'];
 const PROFIL_FIELDS = ['Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement'];
 const DRIVE = 'Panier Drive';
 const DRIVE_OPEN = ['En attente', 'À choisir', 'Validé'];
@@ -596,6 +601,61 @@ const ACTIONS = {
     run(b) {
       setTicket(b.id, 'Erreur', b.error || '');
       return {};
+    },
+  },
+
+  // Ménage & Maison : enregistre les modifications du téléphone puis renvoie toutes les données.
+  // changes = [{ type, id, data (null = supprimé), at }]. Pour un même élément, la modification la plus récente gagne.
+  // Lecture et écriture de l'onglet en un seul bloc : un premier envoi peut compter des centaines de lignes.
+  menageSync: {
+    run(b) {
+      const sh = sheet('Ménage');
+      const values = sh.getDataRange().getValues();
+      const head = values[0].map(String);
+      const c = (k) => head.indexOf(k);
+      const iType = c('Type'), iId = c('ID'), iNom = c('Nom'), iData = c('Données'), iMod = c('Modifié'), iDel = c('Supprimé');
+      const index = {};
+      for (let r = 1; r < values.length; r++) index[values[r][iType] + ':' + values[r][iId]] = r;
+
+      let changed = false;
+      (b.changes || []).forEach((ch) => {
+        if (MENAGE_TYPES.indexOf(ch.type) < 0 || !ch.id) return;
+        const key = ch.type + ':' + ch.id;
+        const at = Number(ch.at) || 0;
+        let r = index[key];
+        if (r !== undefined && Number(values[r][iMod]) > at) return; // une version plus récente est déjà enregistrée
+        if (r === undefined) {
+          r = values.length;
+          values.push(head.map(() => ''));
+          index[key] = r;
+        }
+        const row = values[r];
+        row[iType] = ch.type;
+        row[iId] = String(ch.id);
+        if (ch.data) {
+          // Nom lisible dans le tableur ; l'apostrophe empêche Sheets de lire « =… » comme une formule
+          const nom = String(ch.data.name || ch.data.taskName || '').slice(0, 100);
+          row[iNom] = /^[=+\-@]/.test(nom) ? "'" + nom : nom;
+          row[iData] = JSON.stringify(ch.data);
+          row[iDel] = '';
+        } else {
+          row[iData] = '';
+          row[iDel] = 'oui';
+        }
+        row[iMod] = at;
+        changed = true;
+      });
+      if (changed) sh.getRange(1, 1, values.length, head.length).setValues(values);
+
+      const items = [];
+      for (let r = 1; r < values.length; r++) {
+        const row = values[r];
+        if (row[iDel] === 'oui' || !row[iData]) continue;
+        try {
+          items.push({ type: String(row[iType]), id: String(row[iId]), at: Number(row[iMod]) || 0, data: JSON.parse(row[iData]) });
+        } catch (err) { /* cellule modifiée à la main et illisible : ignorée */ }
+      }
+      return { items };
     },
   },
 };

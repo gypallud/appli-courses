@@ -3,6 +3,7 @@ import { AVATAR_EMOJIS, COLORS, MEMBERS, getMember, memberDefaults } from '../da
 import { useHousehold } from '../state/HouseholdContext';
 import { effectiveAssignee, nextDue } from '../lib/tasks';
 import DataSection from '../components/DataSection';
+import { syncLabel } from '../components/SyncBadge';
 import { Avatar, SectionTitle } from '../components/ui';
 
 const THEMES = [
@@ -13,7 +14,7 @@ const THEMES = [
 
 /** Profil de la personne qui utilise l'appareil, apparence et données. */
 export default function ProfileView({ today, onBack }) {
-  const { state, prefs, setPrefs, updateProfile } = useHousehold();
+  const { state, prefs, setPrefs, updateProfile, sync } = useHousehold();
   const me = prefs.me ? getMember(prefs.me) : null;
   const profile = (me && state.profiles?.[me.id]) ?? {};
   const patch = (p) => updateProfile(me.id, { ...profile, ...p });
@@ -130,6 +131,19 @@ export default function ProfileView({ today, onBack }) {
 
       <section>
         <SectionTitle>Données</SectionTitle>
+        {sync.phase !== 'off' && (
+          <div className="card mb-2 flex items-center gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-slate-800">{syncLabel(sync)}</div>
+              <div className="text-xs text-slate-500">
+                {sync.phase === 'error' ? sync.error : 'Avec le Google Sheets de la maison : chaque téléphone voit les mêmes tâches.'}
+              </div>
+            </div>
+            <button type="button" onClick={sync.syncNow} className="btn btn-ghost shrink-0" disabled={sync.phase === 'syncing'}>
+              Synchroniser
+            </button>
+          </div>
+        )}
         <DataSection />
       </section>
     </div>

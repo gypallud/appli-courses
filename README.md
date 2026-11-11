@@ -13,7 +13,7 @@ Appli web de la maison : stock (frigo, congélateur, placard… paramétrables),
 | `manifest.json`, `icon*.png`, `icon.svg`, `sw.js` | Installation sur l'écran d'accueil, ouverture hors ligne |
 | `apps-script/Code.gs` | Écritures dans le Sheets : coches, ajouts, stocks, réception des photos |
 | `worker/` | Sur le PC : analyse des photos avec Claude Code et mise à jour du Sheets |
-| `menage/`, `maison/` | Appli « Ménage & Maison » (sources React et version publiée) : https://gypallud.github.io/appli-courses/maison/ — voir `menage/README.md` |
+| `menage/`, `maison/` | Appli « Ménage & Maison » (sources React et version publiée, synchronisée via l'onglet Ménage et l'action `menageSync`) : https://gypallud.github.io/appli-courses/maison/ — voir `menage/README.md` |
 
 ## Installer sur le téléphone
 

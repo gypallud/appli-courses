@@ -7,6 +7,7 @@ import { endOfWeek, fmtFull, todayISO } from './lib/dates';
 import RoomFilter from './components/RoomFilter';
 import TaskForm from './components/TaskForm';
 import Toast from './components/Toast';
+import SyncBadge from './components/SyncBadge';
 import { Avatar } from './components/ui';
 import ProfileView from './views/ProfileView';
 import WeekView from './views/WeekView';
@@ -92,6 +93,8 @@ export default function App() {
               <div className="text-lg font-bold text-slate-900">🏡 Ménage & Maison</div>
               <div className="truncate text-xs capitalize text-slate-500">{fmtFull(today)}</div>
             </div>
+            <div className="flex items-center gap-1">
+            <SyncBadge />
             <button type="button" onClick={() => { setProfileOpen(true); window.scrollTo({ top: 0 }); }}
               className={`flex items-center gap-2 rounded-full p-1 pr-1 transition hover:bg-slate-200 ${profileOpen ? 'bg-slate-200' : ''}`}
               aria-label="Profil et réglages">
@@ -99,6 +102,7 @@ export default function App() {
                 ? <Avatar memberId={prefs.me} />
                 : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-slate-500"><UserRound size={20} /></span>}
             </button>
+            </div>
           </div>
           {showRoomFilter && <div className="mt-2"><RoomFilter value={room} onChange={setRoom} counts={roomCounts} /></div>}
         </div>
