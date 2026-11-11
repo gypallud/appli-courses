@@ -16,8 +16,8 @@ export const PlantIdSchema = z.object({
   scientificName: z.string().describe('Nom botanique, ex : "Monstera deliciosa"'),
   confidence: z.enum(['faible', 'moyenne', 'élevée']),
   alternatives: z.array(z.string()).describe("Jusqu'à 3 autres espèces possibles (noms courants), vide si certain"),
-  avatar: z.enum(['monstera', 'broad', 'palm', 'spiky', 'fern']).describe(
-    'Forme du feuillage la plus proche : monstera = grandes feuilles larges/rondes, broad = feuilles en pagaie, palm = palmes, spiky = feuilles fines et pointues, fern = fougère ou rosette',
+  avatar: z.enum(['monstera', 'broad', 'palm', 'spiky', 'fern', 'cactus']).describe(
+    'Forme du feuillage la plus proche : monstera = grandes feuilles larges/rondes, broad = feuilles en pagaie, palm = palmes, spiky = feuilles fines et pointues, fern = fougère ou rosette, cactus = plante grasse en colonnes',
   ),
   light: z.enum(['directe', 'indirecte', 'ombre']),
   waterSummer: z.number().int().describe("Jours entre deux arrosages au printemps/été"),

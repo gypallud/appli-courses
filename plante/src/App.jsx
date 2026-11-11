@@ -23,7 +23,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useLocalStorage('chlorophylle.apiKey.v1', '');
 
-  const { plants, add, update, remove, water, fertilize, resetDemo } = usePlants();
+  const { plants, add, update, remove, water, fertilize, resetStarter } = usePlants();
   const seasonApi = useSeason();
   const { season } = seasonApi;
 
@@ -96,7 +96,7 @@ export default function App() {
               setDraft(photoDraft);
               setEditing('new');
             }}
-            onResetDemo={resetDemo}
+            onResetStarter={resetStarter}
           />
         )}
         {view === 'planner' && (
@@ -115,13 +115,13 @@ export default function App() {
           <button
             className="link-btn"
             onClick={() => {
-              if (window.confirm('Remplacer vos plantes par les 5 exemples de démonstration ?')) {
-                resetDemo();
-                notify('Exemples de démonstration rechargés', 'refresh');
+              if (window.confirm('Revenir aux 7 plantes de départ ? Les plantes ajoutées et les dates d’arrosage seront perdues.')) {
+                resetStarter();
+                notify('Plantes de départ rechargées', 'refresh');
               }
             }}
           >
-            Recharger les exemples
+            Revenir aux plantes de départ
           </button>
         </footer>
       </main>

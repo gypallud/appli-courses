@@ -1,12 +1,26 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
-import { createDemoPlants } from '../data/plants';
+import { createStarterPlants } from '../data/plants';
 import { today, toISO } from '../utils/dates';
 import { uid } from '../utils/care';
 
 /** CRUD des plantes, persisté dans le localStorage. */
 export function usePlants() {
-  const [plants, setPlants] = useLocalStorage('chlorophylle.plants.v1', createDemoPlants);
+  const [plants, setPlants] = useLocalStorage('chlorophylle.plants.v1', createStarterPlants);
+
+  // Téléphones qui ont encore les anciens exemples (ID « demo-… ») : on les remplace par les vraies plantes
+  // de la maison, en gardant les plantes ajoutées à la main.
+  useEffect(() => {
+    const isDemo = (p) => String(p.id).startsWith('demo-');
+    if (!plants.some(isDemo)) return;
+    setPlants((ps) => {
+      // Re-vérifié ici : la mise à jour peut être appliquée deux fois (mode strict de React)
+      if (!ps.some(isDemo)) return ps;
+      const starters = createStarterPlants();
+      const starterIds = new Set(starters.map((p) => p.id));
+      return [...starters, ...ps.filter((p) => !isDemo(p) && !starterIds.has(p.id))];
+    });
+  }, [plants, setPlants]);
 
   const add = useCallback(
     (data) => {
@@ -28,7 +42,7 @@ export function usePlants() {
 
   const fertilize = useCallback((id) => update(id, { lastFertilized: toISO(today()) }), [update]);
 
-  const resetDemo = useCallback(() => setPlants(createDemoPlants()), [setPlants]);
+  const resetStarter = useCallback(() => setPlants(createStarterPlants()), [setPlants]);
 
-  return { plants, add, update, remove, water, fertilize, resetDemo };
+  return { plants, add, update, remove, water, fertilize, resetStarter };
 }

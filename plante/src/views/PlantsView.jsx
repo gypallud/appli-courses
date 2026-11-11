@@ -20,7 +20,7 @@ function StatCard({ icon, label, value, tone, sub }) {
   );
 }
 
-export default function PlantsView({ plants, season, onOpen, onWater, onAdd, onIdentifyPhoto, onResetDemo }) {
+export default function PlantsView({ plants, season, onOpen, onWater, onAdd, onIdentifyPhoto, onResetStarter }) {
   const photoRef = useRef(null);
   const [photoError, setPhotoError] = useState('');
 
@@ -145,15 +145,15 @@ export default function PlantsView({ plants, season, onOpen, onWater, onAdd, onI
           <p>
             {plants.length
               ? 'Essayez un autre filtre ou une autre recherche.'
-              : 'Ajoutez votre première plante ou rechargez les exemples.'}
+              : 'Ajoutez votre première plante ou rechargez vos plantes de départ.'}
           </p>
           {!plants.length && (
             <div className="empty__actions">
               <button className="btn btn--primary" onClick={onAdd}>
                 <Icon name="plus" size={16} /> Ajouter une plante
               </button>
-              <button className="btn btn--secondary" onClick={onResetDemo}>
-                <Icon name="refresh" size={16} /> Charger les exemples
+              <button className="btn btn--secondary" onClick={onResetStarter}>
+                <Icon name="refresh" size={16} /> Recharger mes plantes
               </button>
             </div>
           )}

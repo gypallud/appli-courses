@@ -80,6 +80,28 @@ const STYLES = {
   },
 };
 
+/** Plante grasse en colonnes (cactus, euphorbe) : un tronc et deux bras. */
+function Cactus({ base, dark, light }) {
+  const spines = [
+    [44, 26], [56, 30], [44, 40], [56, 46], [44, 56], [56, 60],
+    [32, 38], [40, 46], [64, 30], [68, 40],
+  ];
+  return (
+    <g>
+      <rect x="29" y="34" width="9" height="24" rx="4.5" fill={light} />
+      <rect x="29" y="51" width="18" height="8" rx="4" fill={light} />
+      <rect x="62" y="26" width="9" height="26" rx="4.5" fill={base} />
+      <rect x="53" y="45" width="18" height="8" rx="4" fill={base} />
+      <rect x="42" y="16" width="16" height="54" rx="8" fill={base} />
+      <path d="M50 20 V68" stroke={dark} strokeWidth="1.4" strokeLinecap="round" opacity=".55" />
+      <path d="M33.5 38 V54 M66.5 30 V48" stroke={dark} strokeWidth="1" strokeLinecap="round" opacity=".45" />
+      {spines.map(([x, y]) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r="0.9" fill="#f1ead2" />
+      ))}
+    </g>
+  );
+}
+
 export default function PlantAvatar({ plant, size = 120, bg = '#eef1e6' }) {
   if (plant.photo) {
     return (
@@ -107,11 +129,15 @@ export default function PlantAvatar({ plant, size = 120, bg = '#eef1e6' }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={plant.variety || plant.name}>
       <ellipse cx="50" cy="96" rx="22" ry="2.5" fill="rgba(47,74,53,.12)" />
-      {leaves.map(({ i, angle, len, fill }) => (
-        <g key={i} transform={`translate(50 69) rotate(${angle})`}>
-          {cfg.leaf(len, fill, dark, angle, bg)}
-        </g>
-      ))}
+      {plant.avatar === 'cactus' ? (
+        <Cactus base={base} dark={dark} light={light} />
+      ) : (
+        leaves.map(({ i, angle, len, fill }) => (
+          <g key={i} transform={`translate(50 69) rotate(${angle})`}>
+            {cfg.leaf(len, fill, dark, angle, bg)}
+          </g>
+        ))
+      )}
       <path d="M33 72 H67 L63 94 Q62.5 96 60 96 H40 Q37.5 96 37 94 Z" fill="#c8734f" />
       <rect x="30" y="66" width="40" height="8" rx="2.5" fill="#b4623f" />
       <path d="M36 78 H64" stroke="rgba(255,255,255,.18)" strokeWidth="1.2" />
