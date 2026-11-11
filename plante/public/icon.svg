@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="62%" r="55%">
+      <stop offset="0" stop-color="#f4f1ea"/>
+      <stop offset="1" stop-color="#e3ead9"/>
+    </radialGradient>
+  </defs>
+  <rect width="100" height="100" fill="#2f4a35"/>
+  <circle cx="50" cy="50" r="38" fill="url(#bg)"/>
+  <g transform="translate(19 18) scale(0.62)">
+    <g transform="translate(50 69) rotate(-48)"><path d="M0 0 L0 -18.9" stroke="#214f33" stroke-width="1.8" stroke-linecap="round"/><path d="M0 -17.01 C15 -18.14 15 -38.56 0 -39.31 C-15 -38.56 -15 -18.14 0 -17.01Z" fill="#538165"/><g stroke="#eef1e6" stroke-width="1.6" stroke-linecap="round"><path d="M3 -23.44 L10 -22.68"/><path d="M3 -30.24 L10 -31.37"/><path d="M-3 -25.7 L-10 -25.7"/><path d="M-3 -32.51 L-9 -34.78"/></g></g>
+    <g transform="translate(50 69) rotate(48)"><path d="M0 0 L0 -18.9" stroke="#214f33" stroke-width="1.8" stroke-linecap="round"/><path d="M0 -17.01 C15 -18.14 15 -38.56 0 -39.31 C-15 -38.56 -15 -18.14 0 -17.01Z" fill="#538165"/><g stroke="#eef1e6" stroke-width="1.6" stroke-linecap="round"><path d="M3 -23.44 L10 -22.68"/><path d="M3 -30.24 L10 -31.37"/><path d="M-3 -25.7 L-10 -25.7"/><path d="M-3 -32.51 L-9 -34.78"/></g></g>
+    <g transform="translate(50 69) rotate(-24)"><path d="M0 0 L0 -19.95" stroke="#214f33" stroke-width="1.8" stroke-linecap="round"/><path d="M0 -17.96 C15 -19.15 15 -40.7 0 -41.5 C-15 -40.7 -15 -19.15 0 -17.96Z" fill="#3d6b4f"/><g stroke="#eef1e6" stroke-width="1.6" stroke-linecap="round"><path d="M3 -24.74 L10 -23.94"/><path d="M3 -31.92 L10 -33.12"/><path d="M-3 -27.13 L-10 -27.13"/><path d="M-3 -34.31 L-9 -36.71"/></g></g>
+    <g transform="translate(50 69) rotate(24)"><path d="M0 0 L0 -19.95" stroke="#214f33" stroke-width="1.8" stroke-linecap="round"/><path d="M0 -17.96 C15 -19.15 15 -40.7 0 -41.5 C-15 -40.7 -15 -19.15 0 -17.96Z" fill="#3d6b4f"/><g stroke="#eef1e6" stroke-width="1.6" stroke-linecap="round"><path d="M3 -24.74 L10 -23.94"/><path d="M3 -31.92 L10 -33.12"/><path d="M-3 -27.13 L-10 -27.13"/><path d="M-3 -34.31 L-9 -36.71"/></g></g>
+    <g transform="translate(50 69)"><path d="M0 0 L0 -21" stroke="#214f33" stroke-width="1.8" stroke-linecap="round"/><path d="M0 -18.9 C15 -20.16 15 -42.84 0 -43.68 C-15 -42.84 -15 -20.16 0 -18.9Z" fill="#538165"/><g stroke="#eef1e6" stroke-width="1.6" stroke-linecap="round"><path d="M3 -26.04 L10 -25.2"/><path d="M3 -33.6 L10 -34.86"/><path d="M-3 -28.56 L-10 -28.56"/><path d="M-3 -36.12 L-9 -38.64"/></g></g>
+    <path d="M33 72 H67 L63 94 Q62.5 96 60 96 H40 Q37.5 96 37 94 Z" fill="#c8734f"/>
+    <rect x="30" y="66" width="40" height="8" rx="2.5" fill="#b4623f"/>
+    <path d="M36 78 H64" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
+  </g>
+</svg>
