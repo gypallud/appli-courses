@@ -3,14 +3,28 @@
 Suivi du ménage, des tâches ménagères et de l'entretien de la maison pour Gérémy, Henda et Lucas.
 React 18 + Vite + Tailwind CSS 4, sans serveur : tout est stocké dans le `localStorage` du navigateur.
 
-## Lancer
+**Appli :** https://gypallud.github.io/appli-courses/maison/
+
+## Installer sur le téléphone
+
+- **iPhone (Safari)** : ouvrir l'URL, bouton Partager > « Sur l'écran d'accueil ».
+- **Android (Chrome)** : ouvrir l'URL, menu ⋮ > « Ajouter à l'écran d'accueil » (ou « Installer l'application »).
+
+Elle s'ouvre alors en plein écran, avec son icône, et fonctionne hors ligne.
+Les données restent sur chaque téléphone : pour copier celles d'un téléphone sur un autre, Profil > Exporter puis Importer.
+
+## Lancer et publier
 
 ```bash
 cd menage
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # version statique dans dist/ (chemins relatifs, peut vivre dans un sous-dossier)
+npm run build    # version publiée dans ../maison/
 ```
+
+`maison/` (à la racine du dépôt) est **généré** : ne pas le modifier à la main. Après une modification du code,
+lancer `npm run build`, puis commiter `menage/` et `maison/` ensemble ; GitHub Pages publie `main` tel quel.
+Les fichiers d'installation (manifest, icônes, `sw.js`) sont dans `menage/public/`.
 
 ## Fonctionnalités
 
