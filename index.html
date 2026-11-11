@@ -562,9 +562,9 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 24; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 25; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
-const PROFILES = ['Henda', 'Gérémy'];
+const PROFILES = ['Henda', 'Gérémy', 'Lucas'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
 const DEFAULT_CATS = ['Produits laitiers', 'Fruits & légumes', 'Viande', 'Poisson', 'Frais', 'Surgelés', 'Épicerie', 'Boulangerie', 'Boissons', 'Hygiène', 'Entretien', 'Autre'];
 const DEFAULT_UNITS = ['pièces', 'g', 'kg', 'ml', 'cl', 'L', 'paquet', 'pot', 'boîte', 'bouteille', 'sachet', 'tranches'];
@@ -2042,7 +2042,7 @@ function openRecipeForm(r = null) {
       <label class="field"><span>Photo (lien, facultatif)</span><input name="image" type="url" value="${v('Image')}" placeholder="https://…" autocomplete="off"></label>
       <div class="card" style="margin-bottom:14px">
         <div class="toggle-row" data-toggle="porc" ${henda ? 'style="opacity:.6"' : ''}><span>Sans porc${henda ? ' (toujours, pour Henda)' : ''}</span><span class="switch${sansPorc ? ' on' : ''}" id="swPorc"></span></div>
-        <div class="toggle-row" data-toggle="share" style="border-top:1px solid var(--line)"><span>Partagée avec l’autre profil</span><span class="switch${shared ? ' on' : ''}" id="swShare"></span></div>
+        <div class="toggle-row" data-toggle="share" style="border-top:1px solid var(--line)"><span>Partagée avec les autres profils</span><span class="switch${shared ? ' on' : ''}" id="swShare"></span></div>
       </div>
       <button class="btn" type="submit">Enregistrer</button>
       ${r ? '<button class="btn ghost" type="button" id="delRecipe" style="margin-top:10px;color:var(--danger);background:var(--danger-soft)">Supprimer la recette</button>' : ''}
