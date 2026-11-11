@@ -1,10 +1,37 @@
 import Icon from '../ui/Icon';
+import { PC_DELAY_TEXT } from '../../services/pcIdentifier';
 
 const CONFIDENCE_TONE = { faible: 'low', moyenne: 'mid', élevée: 'high' };
 
 /** Encart affichant l'état de l'identification par photo. */
 export default function IdentifyResult({ state, onOpenSettings, onRetry }) {
   if (state.status === 'idle') return null;
+
+  if (state.status === 'sending') {
+    return (
+      <div className="ident ident--loading" role="status">
+        <span className="spinner" aria-hidden="true" />
+        <div>
+          <strong>Envoi de la photo au PC de la maison…</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.status === 'queued') {
+    return (
+      <div className="ident ident--loading" role="status">
+        <Icon name="clock" size={18} />
+        <div>
+          <strong>Photo envoyée : identification dans {PC_DELAY_TEXT}</strong>
+          <p>
+            Vous pouvez enregistrer la plante dès maintenant : sa fiche se remplira toute seule quand le PC aura
+            répondu.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (state.status === 'loading') {
     return (

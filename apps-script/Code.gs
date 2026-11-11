@@ -6,8 +6,9 @@
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
  *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, cookRecipe, clearMenu, setProfil, setHabituel, setDriveChoice, requestIdeas, requestDrive, driveSelect, driveCancel.
  * Action de l'appli Ménage & Maison (dossier maison/) : menageSync.
+ * Actions de l'appli Chlorophylle (dossier plantes/) : upload (type « plante »), plantResults.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
- *   driveProposals, drivePrices, driveDone, fail.
+ *   driveProposals, drivePrices, driveDone, applyPlant, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
 // puis sont effacées une fois traitées. Pas de Google Drive : Google bloque l'accès Drive pour un script non vérifié.
@@ -43,6 +44,8 @@ const MENAGE_TYPES = ['tasks', 'history', 'warranties', 'materials', 'profiles']
 const PROFIL_FIELDS = ['Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement'];
 const DRIVE = 'Panier Drive';
 const DRIVE_OPEN = ['En attente', 'À choisir', 'Validé'];
+// Appli « Chlorophylle » (dossier plantes/) : photo d'une plante à identifier, résultat (JSON) dans la colonne Résumé
+const PLANTE = 'Photo de plante';
 // Listes réglables dans l'appli (Réglages), avec leurs valeurs de départ
 const DEFAULT_LISTS = {
   Emplacements: ['Frigo', 'Congélateur', 'Placard'],
@@ -222,7 +225,7 @@ const ACTIONS = {
 
   upload: {
     run(b) {
-      if (['ticket', 'stock'].indexOf(b.type) === -1) throw new Error('type invalide');
+      if (['ticket', 'stock', 'plante'].indexOf(b.type) === -1) throw new Error('type invalide');
       if (!b.image || b.image.length > 40 * PHOTO_CHUNK) throw new Error('photo absente ou trop lourde');
       const id = Utilities.getUuid().slice(0, 8);
       const now = new Date();
@@ -231,7 +234,7 @@ const ACTIONS = {
       sheet('Photos').appendRow([id, b.mime || 'image/jpeg'].concat(chunks));
       table('Tickets').append({
         'ID': id, 'Date': Utilities.formatDate(now, 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
-        'Type': b.type === 'ticket' ? 'Ticket de caisse' : 'Photo du stock',
+        'Type': b.type === 'ticket' ? 'Ticket de caisse' : b.type === 'plante' ? PLANTE : 'Photo du stock',
         'Emplacement': b.emplacement || '', 'Envoyé par': b.par || '', 'Fichier': chunks.length + ' morceaux',
         'Statut': 'En attente', 'Résumé': '',
       });
@@ -601,6 +604,31 @@ const ACTIONS = {
     run(b) {
       setTicket(b.id, 'Erreur', b.error || '');
       return {};
+    },
+  },
+  // Plante identifiée par le PC : la fiche (JSON) est gardée dans Résumé jusqu'à ce que l'appli la lise
+  applyPlant: {
+    worker: true,
+    run(b) {
+      if (!b.result || typeof b.result !== 'object') throw new Error('résultat absent');
+      setTicket(b.id, 'Traité', JSON.stringify(b.result));
+      return {};
+    },
+  },
+  // Appli des plantes : où en est l'identification de ces photos ? (ID aléatoires, connus seulement du téléphone qui les a envoyées)
+  plantResults: {
+    run(b) {
+      const ids = (b.ids || []).map(String).slice(0, 50);
+      const out = {};
+      table('Tickets').rows().forEach((r) => {
+        if (r['Type'] !== PLANTE || ids.indexOf(String(r['ID'])) === -1) return;
+        let result = null;
+        if (r['Statut'] === 'Traité') {
+          try { result = JSON.parse(r['Résumé']); } catch (e) { result = null; }
+        }
+        out[r['ID']] = { statut: r['Statut'], result: result, erreur: r['Statut'] === 'Erreur' ? r['Résumé'] : '' };
+      });
+      return { results: out };
     },
   },
 

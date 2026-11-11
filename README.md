@@ -12,7 +12,7 @@ Appli web de la maison : stock (frigo, congélateur, placard… paramétrables),
 | `index.html` | Toute l'appli (HTML, CSS, JS) |
 | `manifest.json`, `icon*.png`, `icon.svg`, `sw.js` | Installation sur l'écran d'accueil, ouverture hors ligne |
 | `apps-script/Code.gs` | Écritures dans le Sheets : coches, ajouts, stocks, réception des photos |
-| `worker/` | Sur le PC : analyse des photos avec Claude Code et mise à jour du Sheets |
+| `worker/` | Sur le PC : analyse des photos avec Claude Code et mise à jour du Sheets (y compris les photos de l'appli des plantes, toutes les 5 min) |
 | `menage/`, `maison/` | Appli « Ménage & Maison » (sources React et version publiée, synchronisée via l'onglet Ménage et l'action `menageSync`) : https://gypallud.github.io/appli-courses/maison/ — voir `menage/README.md` |
 | `plante/`, `plantes/` | Appli « Chlorophylle » : suivi des plantes d'intérieur, calendrier d'arrosage, diagnostic et identification par photo (sources React et version publiée) : https://gypallud.github.io/appli-courses/plantes/ — voir `plante/README.md` |
 
@@ -100,7 +100,7 @@ cd apps-script && clasp push --force && clasp update-deployment AKfycbwGgt_IxmGd
 
 ### 2. PC
 1. Copier `worker/config.example.json` en `worker/config.json`, y mettre l'URL `/exec` et la clé du PC.
-2. Créer les tâches planifiées (photos et prix Drive à 8 h, 11 h, 14 h, 17 h et 20 h, idées de recettes 10 min après) : `powershell -ExecutionPolicy Bypass -File worker/install-taches.ps1`.
+2. Créer les tâches planifiées (photos et prix Drive à 8 h, 11 h, 14 h, 17 h et 20 h, idées de recettes 10 min après, photos de plantes toutes les 5 min) : `powershell -ExecutionPolicy Bypass -File worker/install-taches.ps1`.
    Pour changer les heures, modifier ce fichier et le relancer, ainsi que `ANALYSIS_TIMES` dans `index.html`.
    Traiter les photos tout de suite : `node worker/worker.js --once`. Surveillance continue : `worker/start-worker.cmd`.
 

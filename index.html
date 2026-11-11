@@ -843,7 +843,8 @@ const TYPES = { ticket: 'Ticket de caisse', stock: 'Photo du stock', ideas: 'Id�
 // scope 'photos' : tickets et photos du stock (onglet Stock) ; 'ideas' : demandes d'idées (onglet Recettes)
 function uploads(scope = 'photos') {
   const day = Date.now() - 86400000;
-  const inScope = (type) => type !== 'Panier Drive' && (type === TYPES.ideas) === (scope === 'ideas');
+  // Panier Drive et photos de l'appli des plantes : affichés ailleurs
+  const inScope = (type) => type !== 'Panier Drive' && type !== 'Photo de plante' && (type === TYPES.ideas) === (scope === 'ideas');
   const fromSheet = data.Tickets
     .filter((t) => (parseDate(t['Date']) || 0) > day && inScope(t['Type']))
     .map((t) => {

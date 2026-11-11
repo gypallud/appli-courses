@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Modal from '../ui/Modal';
 import Icon from '../ui/Icon';
+import { PC_DELAY_TEXT } from '../../services/pcIdentifier';
 
 export default function SettingsModal({ apiKey, onSave, onClose }) {
   const [value, setValue] = useState(apiKey);
@@ -44,18 +45,25 @@ export default function SettingsModal({ apiKey, onSave, onClose }) {
           <div>
             <h3>Identification par photo</h3>
             <p>
-              Pour reconnaître une plante à partir d'une photo, l'application utilise l'IA Claude d'Anthropic. Il faut
-              une clé API personnelle, à créer sur{' '}
-              <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-                console.anthropic.com
-              </a>
-              .
+              <strong>Gratuite</strong> : la photo est analysée par le PC de la maison, avec l'abonnement Claude. Le
+              résultat arrive en {PC_DELAY_TEXT}, et la fiche se remplit toute seule. Rien à régler.
             </p>
           </div>
         </div>
 
+        <details className="settings__paid" open={Boolean(apiKey)}>
+          <summary>Option payante : résultat immédiat</summary>
+          <p>
+            Avec une clé API Claude personnelle (à créer sur{' '}
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
+              console.anthropic.com
+            </a>
+            ), l'identification se fait tout de suite depuis le téléphone, sans passer par le PC. Laissez vide pour
+            rester gratuit.
+          </p>
+
         <label className="field">
-          <span className="field__label">Clé API Claude</span>
+          <span className="field__label">Clé API Claude (facultatif)</span>
           <div className="key-input">
             <Icon name="key" size={16} />
             <input
@@ -74,9 +82,10 @@ export default function SettingsModal({ apiKey, onSave, onClose }) {
 
         <ul className="settings__notes">
           <li>La clé reste uniquement dans ce navigateur, sur cet appareil.</li>
-          <li>Chaque identification coûte environ 2 à 4 centimes, facturés sur votre compte Anthropic.</li>
+          <li>Chaque identification coûte alors quelques centimes, facturés sur votre compte Anthropic.</li>
           <li>N'utilisez cette clé que sur vos propres appareils.</li>
         </ul>
+        </details>
       </div>
     </Modal>
   );

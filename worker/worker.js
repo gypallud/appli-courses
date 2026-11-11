@@ -2,6 +2,8 @@
 // Surveille l'onglet Tickets (lecture publique, gratuite) et ne lance Claude que quand une photo attend.
 // Usage : node worker/worker.js --once   un passage photos (tâche planifiée à 8 h, 11 h, 14 h, 17 h et 20 h, voir install-taches.ps1)
 //         node worker/worker.js --once --recipes   un passage idées de recettes (10 min après chaque passage)
+//         node worker/worker.js --once --plantes   un passage photos de plantes seulement (toutes les 5 min, ne lance Claude que si une photo attend)
+//         node worker/worker.js --plantes --essai photo.jpg   identifie une photo locale sans rien enregistrer
 //         node worker/worker.js          surveillance continue toutes les pollSeconds
 // Config dans worker/config.json (voir config.example.json).
 
@@ -35,13 +37,18 @@ const IDEAS = 'Idées recettes';
 const RECIPES_MODE = process.argv.includes('--recipes');
 // Le panier Drive n'utilise pas Claude : il est traité à chaque passage
 const DRIVE = 'Panier Drive';
-const isMine = (t) => t['Type'] === DRIVE || (t['Type'] === IDEAS) === RECIPES_MODE;
+// Photos de l'appli des plantes : traitées à chaque passage photos, et toutes les 5 min par le passage léger --plantes
+const PLANTE = 'Photo de plante';
+const PLANTS_MODE = process.argv.includes('--plantes');
+const isMine = (t) => (PLANTS_MODE ? t['Type'] === PLANTE : t['Type'] === DRIVE || (t['Type'] === IDEAS) === RECIPES_MODE);
 // --essai : avec --recipes, génère 2 idées pour Henda ; sans, cherche les articles Drive des 4 premiers produits de la liste.
 // Affiche le résultat sans rien enregistrer.
 const TRIAL = process.argv.includes('--essai');
 
 async function hasPending() {
-  const where = `(G = 'En attente' and C ${RECIPES_MODE ? '=' : '<>'} '${IDEAS}') or (C = '${DRIVE}' and (G = 'En attente' or G = 'Validé'))`;
+  const where = PLANTS_MODE
+    ? `G = 'En attente' and C = '${PLANTE}'`
+    : `(G = 'En attente' and C ${RECIPES_MODE ? '=' : '<>'} '${IDEAS}') or (C = '${DRIVE}' and (G = 'En attente' or G = 'Validé'))`;
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=Tickets&tq=${encodeURIComponent('select count(A) where ' + where)}&t=${Date.now()}`;
   const text = await (await fetch(url)).text();
   if (text.trimStart().startsWith('<')) return true; // Sheets non public : on demande directement à Apps Script
@@ -81,6 +88,40 @@ Contenu actuel enregistré pour ce stock : ${JSON.stringify(stockLoc.map((s) => 
 
 Format :
 {"mode":"inventaire","stock":[{"produit":"…","categorie":"…","quantite":"…","unite":"…","emplacement":"${t['Emplacement']}","dlc":""}],"retirer":[{"produit":"…","emplacement":"${t['Emplacement']}"}],"resume":"8 produits vus, 2 retirés"}`;
+}
+
+// Appli des plantes : identifier l'espèce et donner ses paramètres d'entretien (mêmes champs que la fiche de l'appli)
+function plantPrompt(file) {
+  return `Tu es un botaniste spécialiste des plantes d'intérieur. Lis l'image ${file} (outil Read) : c'est la photo d'une plante prise par un particulier.
+Identifie l'espèce (ou le cultivar s'il est reconnaissable) et donne ses paramètres d'entretien optimaux en intérieur, pour un logement en France.
+Sois honnête sur ta certitude : photo floue, partielle ou ambiguë → "faible" et des alternatives. Si ce n'est pas une plante : "isPlant": false.
+Réponds UNIQUEMENT avec un objet JSON, sans texte autour, sans bloc de code, en français :
+{"isPlant":true,"commonName":"Nom courant (ex : Pothos doré)","scientificName":"Nom botanique","confidence":"faible|moyenne|élevée",
+"alternatives":["jusqu'à 3 autres espèces possibles, vide si certain"],
+"avatar":"monstera|broad|palm|spiky|fern (forme du feuillage la plus proche : monstera = grandes feuilles larges, broad = feuilles en pagaie, palm = palmes, spiky = feuilles fines et pointues, fern = fougère ou rosette)",
+"light":"directe|indirecte|ombre","waterSummer":7,"waterWinter":12,"fertilizerEvery":21,
+"soil":"terreau recommandé, une phrase","repotting":"fréquence et période de rempotage, une phrase","humidity":"ex : Élevée (60 %)","temperature":"ex : 18 – 25 °C",
+"notes":"un conseil clé ou une particularité (toxicité pour les animaux si pertinent)","healthNote":"état visible de la plante sur la photo, \\"\\" si rien à signaler"}
+waterSummer / waterWinter : jours entre deux arrosages au printemps-été / en automne-hiver. fertilizerEvery : jours entre deux apports d'engrais de mars à août (0 = aucun).`;
+}
+
+// Garde-fous sur la réponse avant de l'envoyer au téléphone
+function cleanPlant(r) {
+  if (!r || r.isPlant === false) throw new Error("Aucune plante n'a été reconnue sur la photo.");
+  const pick = (v, list, def) => (list.includes(v) ? v : def);
+  const int = (v, min, max, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def; };
+  const str = (v) => (typeof v === 'string' ? v.slice(0, 300) : '');
+  if (!str(r.commonName)) throw new Error('Réponse sans nom de plante');
+  return {
+    commonName: str(r.commonName), scientificName: str(r.scientificName),
+    confidence: pick(r.confidence, ['faible', 'moyenne', 'élevée'], 'moyenne'),
+    alternatives: Array.isArray(r.alternatives) ? r.alternatives.map(str).filter(Boolean).slice(0, 3) : [],
+    avatar: pick(r.avatar, ['monstera', 'broad', 'palm', 'spiky', 'fern'], 'monstera'),
+    light: pick(r.light, ['directe', 'indirecte', 'ombre'], 'indirecte'),
+    waterSummer: int(r.waterSummer, 1, 60, 7), waterWinter: int(r.waterWinter, 1, 90, 12), fertilizerEvery: int(r.fertilizerEvery, 0, 120, 21),
+    soil: str(r.soil), repotting: str(r.repotting), humidity: str(r.humidity), temperature: str(r.temperature),
+    notes: str(r.notes), healthNote: str(r.healthNote),
+  };
 }
 
 function runClaude(text, cwd) {
@@ -405,6 +446,12 @@ async function processAll() {
       const img = await call('image', { id: t['ID'] });
       const file = 'photo.' + (img.mime.includes('png') ? 'png' : 'jpg');
       fs.writeFileSync(path.join(dir, file), Buffer.from(img.data, 'base64'));
+      if (t['Type'] === PLANTE) {
+        const result = cleanPlant(await runClaude(plantPrompt(file), dir));
+        await call('applyPlant', { id: t['ID'], result });
+        log('  ✓', `${result.commonName} (${result.scientificName}, certitude ${result.confidence})`);
+        continue;
+      }
       const result = await runClaude(prompt(t, ctx, file), dir);
       await call('apply', { id: t['ID'], result });
       log('  ✓', result.resume || 'traité');
@@ -431,7 +478,17 @@ async function tick() {
 }
 
 // --once : un seul passage puis arrêt (lancé à heures fixes par le Planificateur de tâches Windows)
-if (process.argv.includes('--prix')) {
+if (PLANTS_MODE && TRIAL) {
+  // node worker/worker.js --plantes --essai chemin/photo.jpg : identifie une photo locale, sans rien envoyer au Sheets
+  const src = process.argv[process.argv.indexOf('--essai') + 1];
+  const dir = fs.mkdtempSync(path.join(TMP, 'essai-'));
+  const file = 'photo' + path.extname(src || '.jpg');
+  Promise.resolve()
+    .then(() => fs.copyFileSync(src, path.join(dir, file)))
+    .then(() => runClaude(plantPrompt(file), dir))
+    .then((r) => log(JSON.stringify(cleanPlant(r), null, 2)), (e) => log('Erreur :', e.message))
+    .finally(() => fs.rmSync(dir, { recursive: true, force: true }));
+} else if (process.argv.includes('--prix')) {
   refreshPrices().then(() => log('Terminé.'), (e) => log('Erreur :', e.message));
 } else if (TRIAL && !RECIPES_MODE) {
   call('pending')
@@ -444,7 +501,8 @@ if (process.argv.includes('--prix')) {
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');
   // Passage photos (8 h, 11 h, 14 h, 17 h, 20 h) : tickets en attente, puis prix Drive de la liste de courses
-  tick().then(() => (RECIPES_MODE ? null : refreshPrices().catch((e) => log('Prix Drive :', e.message)))).then(() => log('Terminé.'));
+  // Passage --plantes (toutes les 5 min) : seulement les photos de plantes, rien d'autre
+  tick().then(() => (RECIPES_MODE || PLANTS_MODE ? null : refreshPrices().catch((e) => log('Prix Drive :', e.message)))).then(() => log('Terminé.'));
 } else {
   log(`Surveillance des photos toutes les ${POLL_MS / 1000} s. Ctrl+C pour arrêter.`);
   tick();

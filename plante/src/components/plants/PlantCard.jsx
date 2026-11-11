@@ -31,6 +31,11 @@ export default function PlantCard({ plant, season, onOpen, onWater }) {
         <p className="plant-card__location">
           <Icon name="pin" size={13} /> {plant.location || 'Sans emplacement'}
         </p>
+        {plant.pendingIdent && (
+          <p className="pending-pill">
+            <Icon name="clock" size={12} /> Identification en cours par le PC
+          </p>
+        )}
 
         <div className="water-meter" aria-label={`Réserve d'eau ${Math.round(st.reserve * 100)} %`}>
           <div className="water-meter__fill" style={{ width: `${Math.max(4, st.reserve * 100)}%` }} />

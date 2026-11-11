@@ -10,6 +10,7 @@ import DiagnosticView from './views/DiagnosticView';
 import { usePlants } from './hooks/usePlants';
 import { useSeason } from './hooks/useSeason';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { usePendingIdentifications } from './hooks/usePendingIdentifications';
 import { waterStatus } from './utils/care';
 import { formatShort } from './utils/dates';
 
@@ -28,6 +29,9 @@ export default function App() {
 
   const notify = useCallback((message, icon = 'check') => setToast({ message, icon, id: Date.now() }), []);
   const clearToast = useCallback(() => setToast(null), []);
+
+  // Photos envoyées au PC : la fiche se complète dès que le PC a répondu
+  usePendingIdentifications(plants, update, notify);
 
   const selected = plants.find((p) => p.id === selectedId);
   const editingPlant = editing && editing !== 'new' ? plants.find((p) => p.id === editing) : null;
@@ -91,7 +95,6 @@ export default function App() {
             onIdentifyPhoto={(photoDraft) => {
               setDraft(photoDraft);
               setEditing('new');
-              if (!apiKey) setShowSettings(true);
             }}
             onResetDemo={resetDemo}
           />
