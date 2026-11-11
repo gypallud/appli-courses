@@ -4,7 +4,7 @@
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
- *   saveRecipe, setFavorite, deleteRecipe, requestIdeas, requestDrive, driveSelect, driveCancel.
+ *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, setProfil, requestIdeas, requestDrive, driveSelect, driveCancel.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
  *   driveProposals, driveDone, fail.
  */
@@ -24,7 +24,12 @@ const HEADERS = {
   Drive: ['Ticket', 'Produit', 'Quantité', 'Candidats', 'Choix', 'Statut'],
   // Article Leclerc choisi pour chaque produit : proposé d'office la fois suivante
   'Choix Drive': ['Produit', 'ID', 'Libellé', 'Date'],
+  Recettes: ['Nom', 'Portions', 'Temps (min)', 'Ingrédients', 'Étapes', 'Sans porc', 'Date', 'Profil', 'Partagée', 'Type', 'Difficulté', 'Coût',
+    'Préparation (min)', 'Cuisson (min)', 'Image', 'Catégorie', 'Favoris', 'Statut', 'Astuce'],
+  // Goûts de chaque profil, utilisés pour les idées de recettes. Refusées : recettes proposées puis rejetées (à ne plus proposer)
+  Profils: ['Profil', 'Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement', 'Refusées'],
 };
+const PROFIL_FIELDS = ['Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement'];
 const DRIVE = 'Panier Drive';
 const DRIVE_OPEN = ['En attente', 'À choisir', 'Validé'];
 // Listes réglables dans l'appli (Réglages), avec leurs valeurs de départ
@@ -253,6 +258,38 @@ const ACTIONS = {
     },
   },
 
+  // Recette proposée par le PC : « Garder » la range avec les autres, « Pas pour moi » la supprime et l'écarte des prochaines idées
+  keepRecipe: {
+    run(b) {
+      const t = table('Recettes');
+      const r = t.find('Nom', b.nom);
+      if (r >= 0) t.set(r, 'Statut', '');
+      return {};
+    },
+  },
+
+  refuseRecipe: {
+    run(b) {
+      const t = table('Recettes');
+      const r = t.find('Nom', b.nom);
+      if (r >= 0) t.remove(r);
+      const p = profilRow(b.profil);
+      const list = String(p.t.get(p.r, 'Refusées') || '').split(';').map((s) => s.trim()).filter(Boolean)
+        .filter((n) => !same(n, b.nom));
+      list.push(String(b.nom));
+      p.t.set(p.r, 'Refusées', list.slice(-40).join('; '));
+      return {};
+    },
+  },
+
+  setProfil: {
+    run(b) {
+      const p = profilRow(b.profil);
+      PROFIL_FIELDS.forEach((k) => { if (b.prefs && b.prefs[k] !== undefined) p.t.set(p.r, k, String(b.prefs[k]).slice(0, 300)); });
+      return {};
+    },
+  },
+
   // Demande d'idées de recettes : traitée par le PC (colonne Fichier = paramètres de la demande)
   requestIdeas: {
     run(b) {
@@ -260,7 +297,11 @@ const ACTIONS = {
       table('Tickets').append({
         'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
         'Type': 'Idées recettes', 'Emplacement': '', 'Envoyé par': b.par || '',
-        'Fichier': JSON.stringify({ nombre: Math.max(1, Math.min(5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200) }),
+        'Fichier': JSON.stringify({
+          nombre: Math.max(1, Math.min(5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200),
+          temps: ['rapide', 'normal', 'long'].indexOf(b.temps) >= 0 ? b.temps : 'normal',
+          type: String(b.type || '').slice(0, 20), pour: (b.pour || []).map(String).slice(0, 5), stockSeul: !!b.stockSeul,
+        }),
         'Statut': 'En attente', 'Résumé': '',
       });
       return { id };
@@ -318,6 +359,8 @@ const ACTIONS = {
         stock: table('Stock').rows(),
         courses: table('Courses').rows(),
         recettes: table('Recettes').rows().map((r) => r['Nom']),
+        favoris: table('Recettes').rows().filter((r) => r['Favoris']).map((r) => ({ nom: r['Nom'], par: r['Favoris'] })),
+        profils: table('Profils').rows(),
         emplacements: listValues('Emplacements'),
         categories: listValues('Catégories'),
         unites: listValues('Unités'),
@@ -456,11 +499,20 @@ function setTicket(id, statut, resume) {
   if (p >= 0) photos.remove(p);
 }
 
+function profilRow(name) {
+  if (!name) throw new Error('profil manquant');
+  const t = table('Profils');
+  let r = t.find('Profil', name);
+  if (r < 0) { t.append({ 'Profil': name }); r = t.find('Profil', name); }
+  return { t, r };
+}
+
 function listValues(name) {
   const list = table(name).rows().map((r) => r['Nom']).filter(Boolean);
   return list.length ? list : DEFAULT_LISTS[name];
 }
 
+const checked = {};
 function sheet(name) {
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName(name);
@@ -471,6 +523,12 @@ function sheet(name) {
     const def = DEFAULT_LISTS[name];
     if (def) sh.getRange(2, 1, def.length, 1).setValues(def.map((n) => [n]));
     if (name === 'Photos') sh.hideSheet();
+  } else if (HEADERS[name] && !checked[name]) {
+    // Onglet créé par une version précédente : ajoute les colonnes apparues depuis
+    checked[name] = true;
+    const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
+    const missing = HEADERS[name].filter((h) => head.indexOf(h) < 0);
+    if (missing.length) sh.getRange(1, head.filter(Boolean).length + 1, 1, missing.length).setValues([missing]).setFontWeight('bold');
   }
   return sh;
 }

@@ -421,6 +421,16 @@ nav .ico { position: relative; height: 24px; }
 .ideas-btn:active { transform: scale(0.99); }
 .fit { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg); border-radius: 999px; padding: 3px 9px; }
 .fit.full { color: var(--accent); background: var(--accent-soft); }
+.chips.pick { margin-bottom: 14px; }
+.chips.pick .chip { padding: 8px 12px; }
+.seg.three button { font-size: 13px; line-height: 1.25; padding: 8px 4px; }
+.seg.three small { display: block; font-weight: 500; opacity: 0.7; font-size: 11px; }
+.badge.new { background: var(--accent); color: var(--on-accent); margin-left: 6px; vertical-align: 2px; }
+.proposal { background: var(--accent-soft); border-radius: 14px; padding: 14px; margin: 14px 0 4px; }
+.proposal p { margin: 0 0 10px; font-size: 14px; }
+.proposal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.proposal .btn { margin: 0; }
+.tip { background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: 14px; }
 .edit-btn {
   position: absolute; top: 16px; right: 14px; font-size: 13px; font-weight: 700; color: var(--accent);
   background: var(--accent-soft); padding: 6px 12px; border-radius: 999px;
@@ -510,7 +520,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 17; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 18; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -576,7 +586,7 @@ const fmtMin = (m) => { m = num(m); if (m === null) return ''; return m >= 60 ? 
 // ---- Données ----
 let data = store.get('data', {});
 // Une copie enregistrée par une ancienne version peut manquer d'onglets (Tickets, Emplacements…)
-for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive']) if (!Array.isArray(data[k])) data[k] = [];
+for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils']) if (!Array.isArray(data[k])) data[k] = [];
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
@@ -586,7 +596,7 @@ let localStockAdds = store.get('localStockAdds', []); // produits ajoutés au st
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
-const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', 'Catégories': 'Nom', 'Unités': 'Nom', Tickets: 'ID', Drive: 'Candidats' };
+const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', 'Catégories': 'Nom', 'Unités': 'Nom', Tickets: 'ID', Drive: 'Candidats', Profils: 'Profil' };
 
 async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
@@ -605,7 +615,7 @@ async function refresh(manual) {
   $('#refreshBtn').classList.add('spin');
   try {
     const names = Object.keys(SHEETS);
-    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive'].includes(n) ? [] : Promise.reject(e)))));
+    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils'].includes(n) ? [] : Promise.reject(e)))));
     data = Object.fromEntries(names.map((n, i) => [n, results[i]]));
     data.at = Date.now();
     store.set('data', data);
@@ -851,6 +861,7 @@ function openSettings() {
   const bg = openSheet(`<h2>Réglages</h2>
     <h3 style="margin-top:0">Profil</h3>
     ${PROFILES.map((p) => `<button class="profile-btn${p === profile ? ' on' : ''}" data-profile="${esc(p)}"><span class="avatar">${esc(p[0])}</span>${esc(p)}${p === profile ? '<span class="badge ok" style="margin-left:auto">Actuel</span>' : ''}</button>`).join('')}
+    ${profile ? `<button class="btn ghost" data-prefs style="margin:4px 0 8px">🍳 Mes goûts en cuisine · ${esc(profile)}</button>` : ''}
     ${SETTING_LISTS.map((l, i) => `<details class="set-list">
       <summary><span>${l.title}</span><small>${l.list().length}</small>${ICON_CHEVRON}</summary>
       <div class="card" data-list="${i}">${l.list().map((v) => locRow(v, l.placeholder)).join('')}</div>
@@ -1583,12 +1594,16 @@ function recipeCategory(r) {
 const isFav = (r) => String(r['Favoris'] || '').split(',').some((p) => norm(p) === norm(profile));
 
 let recipeCat = store.get('recipeCat', 'all');
+let recipeQuick = store.get('recipeQuick', false);
+const QUICK = 30; // minutes
+const isQuick = (r) => num(r['Temps (min)']) !== null && num(r['Temps (min)']) <= QUICK;
+const isProposed = (r) => norm(r['Statut']) === 'proposee';
 let recipeSearch = '';
 
 function viewRecettes() {
   let html = viewUploads('ideas');
   html += `<button class="ideas-btn" data-ideas>
-      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Des recettes sans porc avec ce qu’il y a à la maison</small></span>
+      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Selon vos goûts, rapide ou mijoté, avec ce qu’il y a à la maison</small></span>
     </button>
     <div class="seg" role="tablist">
       <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
@@ -1619,15 +1634,17 @@ function recipeListHTML() {
     <div class="sort-row">Trier :
       <button class="${recipeSort === 'recent' ? 'on' : ''}" data-rsort="recent">Récentes</button>
       <button class="${recipeSort === 'stock' ? 'on' : ''}" data-rsort="stock">Avec mon stock</button>
+      <button class="${recipeQuick ? 'on' : ''}" data-rquick style="margin-left:auto">⚡ Rapides</button>
     </div>`;
-  let shown = searched;
+  let shown = recipeQuick ? searched.filter(isQuick) : searched;
   if (recipeCat === 'fav') shown = shown.filter(isFav);
   else if (recipeCat !== 'all') shown = shown.filter((r) => recipeCategory(r)[0] === recipeCat);
   const fits = new Map(shown.map((r) => [r, stockFit(r)]));
-  shown = shown.slice().sort((a, b) => isFav(b) - isFav(a) || (recipeSort === 'stock'
+  shown = shown.slice().sort((a, b) => isProposed(b) - isProposed(a) || isFav(b) - isFav(a) || (recipeSort === 'stock'
     ? fits.get(b).saves - fits.get(a).saves || fits.get(b).ratio - fits.get(a).ratio
     : (parseDate(b['Date']) || 0) - (parseDate(a['Date']) || 0)));
   if (!shown.length) {
+    if (recipeQuick && searched.length) return html + empty('Aucune recette rapide', `Rien en ${QUICK} min ou moins : demande des idées « Rapide ».`);
     return html + empty('Aucune recette', q ? `Rien ne correspond à « ${recipeSearch} ».` : recipeFilter === 'mine' ? 'Touche + pour ajouter ta première recette.' : 'Aucune recette partagée pour le moment.');
   }
   html += '<div class="card">';
@@ -1639,7 +1656,7 @@ function recipeListHTML() {
     const fitHTML = fit.total ? `<span class="fit${fit.have === fit.total ? ' full' : ''}">🧺 ${fit.have}/${fit.total}${fit.saves ? ` · ♻ ${fit.saves} à finir` : ''}</span>` : '';
     html += `<div class="rrow" data-recipe="${recipeId(r)}">
       <span class="thumb">${thumb}</span>
-      <span class="main"><span class="title">${esc(r['Nom'])}</span><span class="meta">${esc(meta)}</span>${fitHTML}</span>
+      <span class="main"><span class="title">${esc(r['Nom'])}${isProposed(r) ? '<span class="badge new">Nouvelle</span>' : ''}</span><span class="meta">${esc(meta)}</span>${fitHTML}</span>
       <button class="star${isFav(r) ? ' on' : ''}" data-fav="${recipeId(r)}" aria-label="Favori">${isFav(r) ? '★' : '☆'}</button>
     </div>`;
   }
@@ -1667,26 +1684,100 @@ async function toggleFavorite(id) {
   }
 }
 
+// Goûts de chaque profil (onglet Profils) : le PC s'en sert pour les idées de recettes
+const PREF_CUISINES = ['Française', 'Italienne', 'Orientale', 'Méditerranéenne', 'Asiatique', 'Indienne', 'Mexicaine', 'Africaine', 'Américaine'];
+const PREF_EQUIP = ['Four', 'Micro-ondes', 'Air fryer', 'Cookeo / robot', 'Mixeur', 'Plancha'];
+const PREF_LEVELS = ['Débutant', 'Intermédiaire', 'Confirmé'];
+const PREF_SPICY = ['Pas du tout', 'Un peu', 'J’adore'];
+const prefsOf = (p) => data.Profils.find((x) => norm(x['Profil']) === norm(p)) || {};
+const listPref = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+const hasPrefs = (p) => ['Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau'].some((k) => prefsOf(p)[k]);
+const pickChips = (name, list, on, multi = true) => `<div class="chips pick" data-pick="${name}"${multi ? ' data-multi' : ''}>${list.map((v) =>
+  `<button type="button" class="chip${on.some((x) => norm(x) === norm(v)) ? ' on' : ''}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+const picked = (bg, name) => [...bg.querySelectorAll(`[data-pick="${name}"] .chip.on`)].map((c) => c.dataset.v);
+// Choix dans des pastilles : plusieurs (data-multi) ou une seule
+function onPick(e) {
+  const c = e.target.closest('[data-pick] .chip');
+  if (!c) return false;
+  const group = c.parentElement;
+  if (!group.hasAttribute('data-multi')) group.querySelectorAll('.chip').forEach((x) => x !== c && x.classList.remove('on'));
+  c.classList.toggle('on');
+  return true;
+}
+
+function openPrefsSheet() {
+  if (needSync()) return;
+  const p = prefsOf(profile);
+  const henda = norm(profile) === 'henda';
+  const bg = openSheet(`<h2>🍳 Mes goûts · ${esc(profile)}</h2>
+    <p class="hint" style="margin:-6px 4px 16px">Les idées de recettes en tiennent compte. ${henda ? 'Jamais de porc pour toi, c’est réglé d’office.' : 'Pas de porc sauf si tu le demandes dans ton envie.'}</p>
+    <span class="field"><span>Cuisines que j’aime</span></span>${pickChips('cuisines', PREF_CUISINES, listPref(p['Cuisines']))}
+    <label class="field"><span>J’adore (ingrédients, plats)</span><input id="pAime" value="${esc(p['Aime'] || '')}" placeholder="Ex. poulet, fromage, curry, gratins" maxlength="300" autocomplete="off"></label>
+    <label class="field"><span>Je n’aime pas</span><input id="pNon" value="${esc(p["N'aime pas"] || '')}" placeholder="Ex. champignons, poivrons, abats" maxlength="300" autocomplete="off"></label>
+    <label class="field"><span>Allergies, intolérances, régime</span><input id="pAll" value="${esc(p['Allergies'] || '')}" placeholder="Ex. lactose, fruits à coque, végétarien le lundi" maxlength="300" autocomplete="off"></label>
+    <span class="field"><span>Niveau en cuisine</span></span>${pickChips('niveau', PREF_LEVELS, [p['Niveau'] || 'Intermédiaire'], false)}
+    <span class="field"><span>Épicé</span></span>${pickChips('epice', PREF_SPICY, [p['Épicé'] || 'Un peu'], false)}
+    <span class="field"><span>Équipement de la cuisine</span></span>${pickChips('equip', PREF_EQUIP, p['Équipement'] ? listPref(p['Équipement']) : ['Four', 'Micro-ondes'])}
+    <button class="btn" id="prefsGo">Enregistrer</button>`);
+  bg.addEventListener('click', async (e) => {
+    if (onPick(e)) return;
+    const go = e.target.closest('#prefsGo');
+    if (!go) return;
+    const prefs = {
+      'Cuisines': picked(bg, 'cuisines').join(', '), 'Aime': $('#pAime').value.trim(), "N'aime pas": $('#pNon').value.trim(),
+      'Allergies': $('#pAll').value.trim(), 'Niveau': picked(bg, 'niveau')[0] || '', 'Épicé': picked(bg, 'epice')[0] || '',
+      'Équipement': picked(bg, 'equip').join(', '),
+    };
+    go.disabled = true;
+    try {
+      await send({ action: 'setProfil', profil: profile, prefs });
+      const row = data.Profils.find((x) => norm(x['Profil']) === norm(profile));
+      if (row) Object.assign(row, prefs); else data.Profils.push({ 'Profil': profile, ...prefs });
+      store.set('data', data);
+      bg.remove(); toast('Goûts enregistrés');
+    } catch { toast('Pas de réseau : réessaie'); go.disabled = false; }
+  });
+}
+
+const IDEA_TIMES = [['rapide', '⚡ Rapide', '30 min max'], ['normal', '🕐 Normal', '1 h max'], ['long', '🍲 J’ai le temps', 'mijoté, four…']];
+const IDEA_TYPES = ['Plat', 'Soupe', 'Salade', 'Dessert', 'Goûter'];
+let ideaTime = store.get('ideaTime', 'normal');
+
 function openIdeasSheet() {
   if (needSync()) return;
   let n = 3;
+  const urgent = stockItems().filter(isUrgent).length;
   const bg = openSheet(`<h2>✨ Idées de recettes</h2>
-    <p class="hint" style="margin:-6px 4px 16px">Claude propose des recettes pour 3, sans porc, avec ce qu’il y a en stock, en priorité les produits à finir. Elles arrivent dans « Mes recettes » à ${IDEAS_TIMES}.</p>
+    <p class="hint" style="margin:-6px 4px 16px">Claude propose des recettes pour 3 avec ce qu’il y a en stock${urgent ? `, en priorité les ${urgent} produit${urgent > 1 ? 's' : ''} à finir vite` : ''}. Elles arrivent dans « Mes recettes » à ${IDEAS_TIMES}.</p>
+    <span class="field"><span>Combien de temps pour cuisiner ?</span></span>
+    <div class="seg three" style="margin-bottom:14px">${IDEA_TIMES.map(([k, l, d]) => `<button type="button" data-time="${k}" class="${k === ideaTime ? 'on' : ''}">${l}<small>${d}</small></button>`).join('')}</div>
+    <span class="field"><span>Quoi ?</span></span>${pickChips('type', IDEA_TYPES, ['Plat'], false)}
+    <span class="field"><span>Goûts à respecter</span></span>${pickChips('pour', PROFILES, PROFILES)}
+    ${hasPrefs(profile) ? '' : '<p class="hint" style="margin:-6px 4px 14px">Astuce : renseigne <button type="button" data-prefs style="color:var(--accent);font-weight:600;padding:0;font-size:inherit">tes goûts</button> pour des idées plus personnalisées.</p>'}
+    <div class="card toggle-row" data-only style="cursor:pointer;margin-bottom:14px"><span>Seulement avec ce que j’ai<br><small style="color:var(--muted)">sel, poivre, huile et épices en plus</small></span><span class="switch" id="swOnly"></span></div>
     <span class="field"><span>Combien de recettes ?</span></span>
     <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="3" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>
-    <label class="field"><span>Une envie ? (facultatif)</span><input id="ideasWish" placeholder="Ex. rapide, végétarien, gratin, soupe…" maxlength="200" autocomplete="off"></label>
+    <label class="field"><span>Une envie ? (facultatif)</span><input id="ideasWish" placeholder="Ex. végétarien, gratin, comme au Maroc…" maxlength="200" autocomplete="off"></label>
     <button class="btn" id="ideasGo">Demander</button>`);
   bg.addEventListener('click', async (e) => {
+    if (onPick(e)) return;
+    const tm = e.target.closest('[data-time]');
+    if (tm) { ideaTime = tm.dataset.time; store.set('ideaTime', ideaTime); bg.querySelectorAll('[data-time]').forEach((b) => b.classList.toggle('on', b === tm)); return; }
+    if (e.target.closest('[data-only]')) { $('#swOnly').classList.toggle('on'); return; }
     const s = e.target.closest('[data-n]');
     if (s) { n = Math.max(1, Math.min(5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
     if (!e.target.closest('#ideasGo')) return;
-    const envie = $('#ideasWish').value.trim();
+    const pour = picked(bg, 'pour');
+    const req = {
+      action: 'requestIdeas', nombre: n, envie: $('#ideasWish').value.trim(), par: profile, temps: ideaTime,
+      type: picked(bg, 'type')[0] || '', pour: pour.length ? pour : [profile], stockSeul: $('#swOnly').classList.contains('on'),
+    };
     bg.remove();
     const tmp = { id: 'tmp' + Date.now(), type: 'ideas', at: Date.now(), sending: true };
     myUploads.unshift(tmp);
     render();
     try {
-      const out = await send({ action: 'requestIdeas', nombre: n, envie, par: profile });
+      const out = await send(req);
       tmp.id = out.id; delete tmp.sending;
       store.set('myUploads', myUploads);
       toast(`Demande envoyée · prêtes à ${IDEAS_TIMES}`);
@@ -1851,6 +1942,10 @@ function renderRecipe() {
         </div>
       </div>
 
+      ${isProposed(r) && norm(r['Profil']) === norm(profile) ? `<div class="proposal">
+        <p>✨ Nouvelle idée pour toi. Tu la gardes ? Si elle ne te plaît pas, elle ne sera plus proposée.</p>
+        <div class="row2"><button class="btn ghost" data-refuse>Pas pour moi</button><button class="btn" data-keep>Garder</button></div>
+      </div>` : ''}
       <div class="section">
         <div class="section-head">
           <h2>Ingrédients</h2>
@@ -1870,6 +1965,7 @@ function renderRecipe() {
         ${prep || cook ? `<div class="timeline">${prep ? `<div>Préparation<b>${esc(fmtMin(prep))}</b></div>` : ''}${cook ? `<div>Cuisson<b>${esc(fmtMin(cook))}</b></div>` : ''}${total ? `<div>Total<b>${esc(fmtMin(total))}</b></div>` : ''}</div>` : ''}
         <div class="card toggle-row" data-wake style="cursor:pointer;margin-bottom:8px"><span>Garder l’écran allumé pendant la cuisine</span><span class="switch${wakeLock ? ' on' : ''}"></span></div>
         <div>${steps.map((s, i) => `<div class="step"><div class="num">${i + 1}</div><div><div class="lbl">Étape ${i + 1}</div><p>${esc(s)}</p></div></div>`).join('')}</div>
+        ${r['Astuce'] ? `<div class="tip">💡 ${esc(r['Astuce'])}</div>` : ''}
       </div>
     </div>`;
 }
@@ -1877,6 +1973,8 @@ function renderRecipe() {
 $('#recipeView').addEventListener('click', async (e) => {
   if (e.target.closest('[data-close]')) { history.length > 1 && location.hash ? history.back() : closeRecipe(); return; }
   if (e.target.closest('[data-editrecipe]')) { openRecipeForm(current.r); return; }
+  if (e.target.closest('[data-keep]')) { reviewRecipe(true); return; }
+  if (e.target.closest('[data-refuse]')) { reviewRecipe(false); return; }
   const s = e.target.closest('[data-serv]');
   if (s) { current.servings = Math.max(1, Math.min(20, current.servings + +s.dataset.serv)); renderRecipe(); return; }
   if (e.target.closest('[data-wake]')) {
@@ -1893,6 +1991,17 @@ $('#recipeView').addEventListener('click', async (e) => {
     addCourses(items);
   }
 });
+async function reviewRecipe(keep) {
+  if (needSync()) return;
+  const r = current.r;
+  if (keep) { r['Statut'] = ''; renderRecipe(); }
+  else { data.Recettes = data.Recettes.filter((x) => x !== r); history.length > 1 && location.hash ? history.back() : closeRecipe(); }
+  store.set('data', data); render();
+  try {
+    await send(keep ? { action: 'keepRecipe', nom: r['Nom'] } : { action: 'refuseRecipe', nom: r['Nom'], profil: profile });
+    toast(keep ? 'Recette gardée' : 'Recette retirée, elle ne sera plus proposée');
+  } catch { toast('Pas de réseau : réessaie'); refresh(); }
+}
 function releaseWake() { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } }
 window.addEventListener('popstate', () => {
   const m = location.hash.match(/^#recette\/(.+)/);
@@ -1995,6 +2104,8 @@ document.addEventListener('click', (e) => {
   }
   if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
+  if (e.target.closest('[data-prefs]')) { openPrefsSheet(); return; }
+  if (e.target.closest('[data-rquick]')) { recipeQuick = !recipeQuick; store.set('recipeQuick', recipeQuick); render(); return; }
   const dv = e.target.closest('[data-drive]');
   if (dv) { ({ request: requestDrive, retry: retryDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
   const rs = e.target.closest('[data-rsort]');

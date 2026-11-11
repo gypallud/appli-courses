@@ -63,6 +63,9 @@ Pour tester la recherche sans rien enregistrer : `node worker/worker.js --essai`
 - **Recettes** : `Ingrédients` et `Étapes` séparés par `;` (ex. `Blancs de poulet 500 g; Courgettes 2`).
   Colonnes facultatives : `Type`, `Difficulté`, `Coût`, `Préparation (min)`, `Cuisson (min)`, `Image` (URL d'une photo).
   Le profil Henda n'affiche jamais une recette marquée `Sans porc = Non`.
+  Idées de recettes : on choisit le temps (rapide 30 min, normal 1 h, « j'ai le temps »), le type, les goûts à respecter et « seulement avec ce que j'ai ».
+  Elles arrivent avec `Statut = Proposée` (badge « Nouvelle ») : « Garder » vide le statut, « Pas pour moi » supprime la recette et l'ajoute aux `Refusées` du profil.
+- **Profils** : goûts de chaque profil (Réglages > Mes goûts en cuisine) : cuisines, aime, n'aime pas, allergies, niveau, épicé, équipement. Le PC s'en sert pour les idées.
 - **Emplacements**, **Tickets**, **Photos** (caché, vidé après analyse) : créés par le script, gérés par l'appli.
 
 ## Mise en place (une fois)

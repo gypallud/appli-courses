@@ -105,48 +105,102 @@ function runClaude(text, cwd) {
   });
 }
 
+// Temps de cuisine demandé : limite (préparation + cuisson) et consigne pour Claude
+const TIMES = {
+  rapide: { max: 30, text: 'RAPIDE : 30 minutes maximum au total (préparation + cuisson), peu de vaisselle, faisable un soir de semaine.' },
+  normal: { max: 60, text: 'NORMAL : 1 heure maximum au total (préparation + cuisson).' },
+  long: { max: 0, text: 'J’AI LE TEMPS : plats mijotés, au four, plus élaborés ou de week-end, 1 h à 3 h au total acceptables (beaucoup de temps de cuisson sans surveillance, c’est bien).' },
+};
+const eatersOf = (t, req) => (req.pour && req.pour.length ? req.pour : [t['Envoyé par']]).map(String);
+const noPork = (eaters) => eaters.some((p) => p.toLowerCase() === 'henda');
+
+function prefsText(ctx, eaters) {
+  return eaters.map((name) => {
+    const p = (ctx.profils || []).find((x) => String(x['Profil']).toLowerCase() === name.toLowerCase()) || {};
+    const favs = (ctx.favoris || []).filter((f) => String(f.par).toLowerCase().includes(name.toLowerCase())).map((f) => f.nom);
+    const lines = [
+      p['Cuisines'] && `cuisines préférées : ${p['Cuisines']}`,
+      p['Aime'] && `adore : ${p['Aime']}`,
+      p["N'aime pas"] && `N'AIME PAS (à éviter absolument) : ${p["N'aime pas"]}`,
+      p['Allergies'] && `ALLERGIES / RÉGIME (à respecter strictement) : ${p['Allergies']}`,
+      p['Niveau'] && `niveau en cuisine : ${p['Niveau']}`,
+      p['Épicé'] && `épicé : ${p['Épicé']}`,
+      favs.length && `recettes favorites (pour cerner ses goûts) : ${favs.slice(0, 10).join(', ')}`,
+      p['Refusées'] && `recettes déjà refusées (ne plus proposer ni rien de très proche) : ${p['Refusées']}`,
+    ].filter(Boolean);
+    return `- ${name} : ${lines.length ? lines.join(' ; ') : 'pas de préférence renseignée'}`;
+  }).join('\n');
+}
+
+function equipmentOf(ctx, eaters) {
+  const all = new Set();
+  for (const name of eaters) {
+    const p = (ctx.profils || []).find((x) => String(x['Profil']).toLowerCase() === name.toLowerCase());
+    String(p?.['Équipement'] || '').split(',').map((s) => s.trim()).filter(Boolean).forEach((e) => all.add(e));
+  }
+  return [...all];
+}
+
 function ideasPrompt(t, ctx) {
   const req = JSON.parse(t['Fichier'] || '{}');
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const days = (s) => (s['DLC'] ? (new Date(s['DLC']) - today) / 86400000 : Infinity);
   const urgent = ctx.stock.filter((s) => days(s) >= 0 && days(s) < 3).map((s) => s['Produit']);
   const expired = ctx.stock.filter((s) => days(s) < 0).map((s) => s['Produit']);
-  const henda = String(t['Envoyé par']).toLowerCase() === 'henda';
-  return `Tu proposes des recettes pour un foyer français de 3 adultes.
-Propose ${req.nombre || 3} recette(s) différente(s), réalistes et familiales, pour 3 personnes.
+  const eaters = eatersOf(t, req);
+  const time = TIMES[req.temps] || TIMES.normal;
+  const equip = equipmentOf(ctx, eaters);
+  return `Tu es un cuisinier qui propose des recettes personnalisées à un foyer français de 3 adultes.
+Propose ${req.nombre || 3} recette(s) VRAIMENT différentes entre elles (techniques, saveurs, cuisines variées), réalistes, pour 3 personnes.
+Type de recette : ${req.type || 'Plat'}.
+Temps : ${time.text}
 ${req.envie ? `Envie exprimée : « ${req.envie} ».` : ''}
 
+Goûts de ceux qui vont manger (la recette doit plaire à tous ; un « n'aime pas » ou une allergie de l'un l'emporte sur les envies des autres) :
+${prefsText(ctx, eaters)}
+
 Règles :
-- SANS PORC, sans exception (ni jambon, lardons, chorizo, saucisson, gélatine de porc…)${henda ? '' : ', sauf si l\'envie ci-dessus le demande explicitement'}.
-- Utilise surtout ce qui est en stock. Priorité absolue aux produits à finir vite : ${urgent.length ? urgent.join(', ') : 'aucun'}.
+- SANS PORC, sans exception (ni jambon, lardons, chorizo, saucisson, gélatine de porc…)${noPork(eaters) ? '' : ', sauf si l\'envie ci-dessus le demande explicitement'}.
+- ${req.stockSeul
+    ? 'UNIQUEMENT avec les produits en stock ci-dessous, plus sel, poivre, huile, vinaigre, eau et épices sèches courantes. Aucun autre ingrédient.'
+    : 'Le stock d\'abord : la recette s\'appuie sur les produits en stock ; au plus 3 ingrédients à acheter en plus des basiques (sel, poivre, huile, épices).'}
+- Priorité absolue aux produits à finir vite : ${urgent.length ? urgent.join(', ') : 'aucun'}.
 - N'utilise jamais ces produits périmés : ${expired.length ? expired.join(', ') : 'aucun'}.
-- Stock actuel (produit | quantité | emplacement) : ${ctx.stock.filter((s) => days(s) >= 0).map((s) => `${s['Produit']} | ${s['Quantité']} ${s['Unité']} | ${s['Emplacement']}`).join(' ; ')}.
-- Évite ces recettes déjà enregistrées : ${(ctx.recettes || []).join(', ') || 'aucune'}.
-- Ingrédients au format « Nom quantité unité » (ex. « Blancs de poulet 500 g », « Oignon 1 », « Crème fraîche 20 cl »), en reprenant le nom du produit en stock quand c'est lui.
-- Étapes courtes et claires, une action par étape.
+- Stock actuel (produit | quantité | emplacement) : ${ctx.stock.filter((s) => days(s) >= 0).map((s) => `${s['Produit']} | ${s['Quantité']} ${s['Unité']} | ${s['Emplacement']}`).join(' ; ') || 'vide'}.
+- Ne dépasse pas les quantités disponibles en stock.
+${equip.length ? `- Équipement disponible : plaques de cuisson, ${equip.join(', ')}. N'utilise aucun autre appareil.\n` : ''}- Évite ces recettes déjà enregistrées : ${(ctx.recettes || []).join(', ') || 'aucune'}.
+- Adapte le détail des étapes au niveau en cuisine (débutant : étapes très explicites, temps et repères visuels).
+- Ingrédients au format « Nom quantité unité » (ex. « Blancs de poulet 500 g », « Oignon 1 », « Crème fraîche 20 cl »), en reprenant exactement le nom du produit en stock quand c'est lui.
+- Étapes courtes et claires, une action par étape, avec les temps et températures.
+- Une astuce utile par recette (variante, conservation, accompagnement, préparation à l'avance).
+- Catégorie : exactement une de Volaille, Viande, Poisson, Pâtes, Soupe, Salade, Dessert, Végétarien.
 
 Réponds UNIQUEMENT avec un objet JSON, sans texte autour, sans bloc de code :
-{"recettes":[{"nom":"…","type":"Plat","difficulte":"Facile|Moyen|Difficile","cout":"Bon marché|Moyen|Cher","preparation":15,"cuisson":20,"ingredients":["…"],"etapes":["…"],"sans_porc":true}],"resume":"3 recettes ajoutées"}`;
+{"recettes":[{"nom":"…","type":"${req.type || 'Plat'}","categorie":"Volaille","difficulte":"Facile|Moyen|Difficile","cout":"Bon marché|Moyen|Cher","preparation":15,"cuisson":20,"ingredients":["…"],"etapes":["…"],"astuce":"…","sans_porc":true}],"resume":"3 recettes ajoutées"}`;
 }
 
 async function processIdeas(t, ctx) {
   const dir = fs.mkdtempSync(path.join(TMP, t['ID'] + '-'));
   try {
+    const req = JSON.parse(t['Fichier'] || '{}');
+    const eaters = eatersOf(t, req);
+    const max = (TIMES[req.temps] || TIMES.normal).max;
     const out = await runClaude(ideasPrompt(t, ctx), dir);
-    const henda = String(t['Envoyé par']).toLowerCase() === 'henda';
-    const recettes = (out.recettes || [])
-      .filter((r) => r.nom && !(henda && r.sans_porc === false))
+    const all = (out.recettes || []).filter((r) => r.nom && !(noPork(eaters) && r.sans_porc === false));
+    // Une recette « rapide » qui dépasse nettement le temps demandé est écartée
+    const recettes = all.filter((r) => !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + 5)
       .map((r) => ({
         'Nom': r.nom, 'Portions': 3, 'Temps (min)': (+r.preparation || 0) + (+r.cuisson || 0) || '',
         'Ingrédients': (r.ingredients || []).map((x) => String(x).replace(/;/g, ',')).join('; '),
         'Étapes': (r.etapes || []).map((x) => String(x).replace(/;/g, ',')).join('; '),
         'Sans porc': r.sans_porc === false ? 'Non' : 'Oui', 'Profil': t['Envoyé par'], 'Partagée': 'Oui',
-        'Type': r.type || 'Plat', 'Difficulté': r.difficulte || 'Facile', 'Coût': r.cout || 'Bon marché',
+        'Type': r.type || req.type || 'Plat', 'Difficulté': r.difficulte || 'Facile', 'Coût': r.cout || 'Bon marché',
         'Préparation (min)': r.preparation || '', 'Cuisson (min)': r.cuisson || '', 'Image': '',
+        'Catégorie': r.categorie || '', 'Astuce': String(r.astuce || '').slice(0, 300), 'Statut': 'Proposée',
       }));
-    if (!recettes.length) throw new Error('aucune recette proposée');
-    if (TRIAL) { console.log(JSON.stringify(recettes, null, 2)); return 'essai : rien enregistré'; }
-    const resume = recettes.length === 1 ? '1 recette ajoutée : ' + recettes[0]['Nom'] : `${recettes.length} recettes ajoutées`;
+    if (!recettes.length) throw new Error(all.length ? 'recettes trop longues pour le temps demandé' : 'aucune recette proposée');
+    if (TRIAL) { console.log(ideasPrompt(t, ctx)); console.log(JSON.stringify(recettes, null, 2)); return 'essai : rien enregistré'; }
+    const resume = recettes.length === 1 ? '1 recette proposée : ' + recettes[0]['Nom'] : `${recettes.length} recettes proposées`;
     await call('applyRecipes', { id: t['ID'], recettes, resume });
     return resume;
   } finally {
@@ -324,7 +378,7 @@ if (TRIAL && !RECIPES_MODE) {
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (TRIAL) {
   call('pending')
-    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': '{"nombre":2}' }, ctx))
+    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': JSON.stringify({ nombre: 2, temps: 'rapide', type: 'Plat', pour: ['Henda', 'Gérémy'] }) }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');
