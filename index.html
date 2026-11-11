@@ -11,6 +11,10 @@
 <meta name="apple-mobile-web-app-title" content="Courses">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.json">
+<script>
+// Thème choisi sur ce téléphone, appliqué avant l'affichage pour éviter un flash
+try { const t = JSON.parse(localStorage.getItem('theme')); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
@@ -30,8 +34,9 @@
   --radius: 14px;
   color-scheme: light;
 }
+/* Thème : automatique (réglage du téléphone), ou forcé clair / sombre dans les Réglages (data-theme) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #16181a;
     --surface: #1f2224;
     --text: #ecebe7;
@@ -46,6 +51,21 @@
     --danger-soft: #3d2221;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+    --bg: #16181a;
+    --surface: #1f2224;
+    --text: #ecebe7;
+    --muted: #9a9da1;
+    --line: #2d3134;
+    --accent: #7cc39e;
+    --accent-soft: #233a2f;
+    --on-accent: #10261b;
+    --warn: #e7a35e;
+    --warn-soft: #3b2c1b;
+    --danger: #f08a82;
+    --danger-soft: #3d2221;
+    color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -562,7 +582,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 26; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 27; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy', 'Lucas'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -898,11 +918,27 @@ $('#photoInput').addEventListener('change', async (e) => {
   render(); scheduleRefresh();
 });
 
+// ---- Thème (propre à chaque téléphone) ----
+let themeChoice = store.get('theme', 'auto');
+const THEME_BG = { light: '#f6f5f1', dark: '#16181a' };
+function applyTheme() {
+  const root = document.documentElement;
+  if (themeChoice === 'auto') delete root.dataset.theme; else root.dataset.theme = themeChoice;
+  // Couleur de la barre du téléphone
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+    m.content = themeChoice === 'auto' ? (m.media.includes('dark') ? THEME_BG.dark : THEME_BG.light) : THEME_BG[themeChoice];
+  });
+}
+function setTheme(t) { themeChoice = t; store.set('theme', t); applyTheme(); }
+applyTheme();
+
 // ---- Réglages ----
 function openSettings() {
   const bg = openSheet(`<h2>Réglages</h2>
     <h3 style="margin-top:0">Profil</h3>
     ${PROFILES.map((p) => `<button class="profile-btn${p === profile ? ' on' : ''}" data-profile="${esc(p)}"><span class="avatar">${esc(p[0])}</span>${esc(p)}${p === profile ? '<span class="badge ok" style="margin-left:auto">Actuel</span>' : ''}</button>`).join('')}
+    <h3>Affichage</h3>
+    <div class="seg" style="margin-bottom:8px">${[['auto', 'Automatique'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([k, l]) => `<button type="button" data-themeset="${k}" class="${themeChoice === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${profile ? `<button class="btn ghost" data-prefs style="margin:4px 0 8px">🍳 Mes goûts en cuisine · ${esc(profile)}</button>` : ''}
     ${SETTING_LISTS.map((l, i) => `<details class="set-list">
       <summary><span>${l.title}</span><small>${l.list().length}</small>${ICON_CHEVRON}</summary>
@@ -2573,6 +2609,8 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
   if (e.target.closest('[data-prefs]')) { openPrefsSheet(); return; }
+  const th = e.target.closest('[data-themeset]');
+  if (th) { setTheme(th.dataset.themeset); document.querySelectorAll('[data-themeset]').forEach((b) => b.classList.toggle('on', b === th)); return; }
   if (e.target.closest('[data-menushop]')) { menuShop(); return; }
   const mc = e.target.closest('[data-menuclear]');
   if (mc) { clearMenu(mc); return; }
