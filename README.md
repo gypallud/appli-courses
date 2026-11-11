@@ -65,8 +65,8 @@ Pour tester la recherche sans rien enregistrer : `node worker/worker.js --essai`
   Le profil Henda n'affiche jamais une recette marquée `Sans porc = Non`.
   Idées de recettes : on choisit le temps (rapide 30 min, normal 1 h, « j'ai le temps »), le type, les goûts à respecter et « seulement avec ce que j'ai ».
   Elles arrivent avec `Statut = Proposée` (badge « Nouvelle ») : « Garder » vide le statut, « Pas pour moi » supprime la recette et l'ajoute aux `Refusées` du profil.
-  Fiche recette : « Choisir les courses » (ingrédients à cocher, les manquants le sont d'office), « Cuisiner pas à pas » (une étape en grand, minuteurs détectés dans le texte), « J'ai cuisiné » (met à jour le stock : quantité restante calculée quand les unités se comparent, 0 = retiré ; avis 👍/👎 dans , , ).
-  Menu de la semaine : un dîner par jour (2 à 7) à partir du lendemain, colonne  =  ; un nouveau menu remplace l'ancien.
+  Fiche recette : « Choisir les courses » (ingrédients à cocher, les manquants le sont d'office), « Cuisiner pas à pas » (une étape en grand, minuteurs détectés dans le texte), « J'ai cuisiné » (met à jour le stock : quantité restante calculée quand les unités se comparent, 0 = retiré ; avis 👍/👎 dans `Avis`, plus `Cuisinée` et `Fois`).
+  Menu de la semaine : un dîner par jour (2 à 7) à partir du lendemain, colonne `Menu` = `1|Lundi` ; un nouveau menu remplace l'ancien.
 - **Profils** : goûts de chaque profil (Réglages > Mes goûts en cuisine) : cuisines, aime, n'aime pas, allergies, niveau, épicé, équipement. Le PC s'en sert pour les idées.
 - **Emplacements**, **Tickets**, **Photos** (caché, vidé après analyse) : créés par le script, gérés par l'appli.
 
