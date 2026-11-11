@@ -137,5 +137,8 @@ export function emptyPlant() {
     lastWatered: toISO(today()),
     lastFertilized: '',
     notes: '',
+    // Identification par photo : ID de la demande envoyée au PC (vide si aucune en cours), puis résultat
+    pendingIdent: '',
+    identInfo: null,
   };
 }

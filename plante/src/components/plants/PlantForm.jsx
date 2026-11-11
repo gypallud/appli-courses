@@ -7,6 +7,13 @@ import IdentifyResult from './IdentifyResult';
 import { AVATAR_COLORS, AVATAR_STYLES, emptyPlant } from '../../data/plants';
 import { LIGHT } from '../../utils/care';
 import { preparePhoto } from '../../utils/image';
+import {
+  PLACEHOLDER_NAME,
+  fetchPlantResults,
+  plantFieldsFrom,
+  sendPlantPhoto,
+} from '../../services/pcIdentifier';
+import { identInfoFrom } from '../../hooks/usePendingIdentifications';
 
 // Le module IA (SDK Anthropic) n'est chargé qu'au premier usage pour garder l'app légère.
 const loadIdentifier = () => import('../../services/plantIdentifier');
@@ -35,7 +42,10 @@ export default function PlantForm({
 }) {
   const [form, setForm] = useState(() => ({ ...emptyPlant(), ...initial }));
   const [idImage, setIdImage] = useState(initialIdImage);
-  const [ident, setIdent] = useState({ status: 'idle' }); // idle | loading | done | error
+  // idle | sending (envoi au PC) | queued (le PC n'a pas encore répondu) | loading (clé API) | done | error
+  const [ident, setIdent] = useState(() =>
+    initial?.pendingIdent ? { status: 'queued', id: initial.pendingIdent } : { status: 'idle' },
+  );
   const [error, setError] = useState('');
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
@@ -44,42 +54,74 @@ export default function PlantForm({
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }));
 
+  const applyResult = useCallback((r) => {
+    setForm((f) => ({
+      ...f,
+      ...plantFieldsFrom(r),
+      name: !f.name.trim() || f.name === PLACEHOLDER_NAME ? r.commonName : f.name,
+      pendingIdent: '',
+      identInfo: identInfoFrom(r),
+    }));
+    setIdent({ status: 'done', result: r });
+  }, []);
+
   const identify = useCallback(
     async (image) => {
-      setIdent({ status: 'loading' });
+      // Option payante : résultat immédiat avec la clé API
+      if (apiKey) {
+        setIdent({ status: 'loading' });
+        try {
+          const { identifyPlant } = await loadIdentifier();
+          applyResult(await identifyPlant(image, apiKey));
+        } catch (err) {
+          setIdent({ status: 'error', message: err.message, code: err.code });
+        }
+        return;
+      }
+      // Gratuit : la photo part au PC de la maison
+      setIdent({ status: 'sending' });
       try {
-        const { identifyPlant } = await loadIdentifier();
-        const r = await identifyPlant(image, apiKey);
-        setForm((f) => ({
-          ...f,
-          name: f.name.trim() ? f.name : r.commonName,
-          variety: r.scientificName,
-          avatar: r.avatar,
-          light: r.light,
-          waterSummer: r.waterSummer,
-          waterWinter: r.waterWinter,
-          fertilizerEvery: r.fertilizerEvery,
-          soil: r.soil,
-          repotting: r.repotting,
-          humidity: r.humidity,
-          temperature: r.temperature,
-          notes: r.notes,
-        }));
-        setIdent({ status: 'done', result: r });
+        const id = await sendPlantPhoto(image);
+        setForm((f) => ({ ...f, pendingIdent: id, name: f.name.trim() ? f.name : PLACEHOLDER_NAME }));
+        setIdent({ status: 'queued', id });
       } catch (err) {
         setIdent({ status: 'error', message: err.message, code: err.code });
       }
     },
-    [apiKey],
+    [apiKey, applyResult],
   );
 
-  // Ouverture via « Identifier par photo » : on lance l'analyse tout de suite.
+  // Tant que le formulaire est ouvert, on regarde si le PC a répondu
   useEffect(() => {
-    if (autoIdentify && initialIdImage && apiKey && !autoRan.current) {
+    if (ident.status !== 'queued') return undefined;
+    let stop = false;
+    const check = async () => {
+      try {
+        const res = (await fetchPlantResults([ident.id]))[ident.id];
+        if (stop || !res) return;
+        if (res.statut === 'Traité' && res.result) applyResult(res.result);
+        else if (res.statut === 'Erreur') {
+          setForm((f) => ({ ...f, pendingIdent: '' }));
+          setIdent({ status: 'error', code: 'pc', message: res.erreur || "Le PC n'a pas pu identifier la plante." });
+        }
+      } catch {
+        /* réseau : on réessaiera au prochain tour */
+      }
+    };
+    const timer = setInterval(check, 15000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [ident.status, ident.id, applyResult]);
+
+  // Ouverture via « Identifier par photo » : on lance l'identification tout de suite.
+  useEffect(() => {
+    if (autoIdentify && initialIdImage && !autoRan.current) {
       autoRan.current = true;
       identify(initialIdImage);
     }
-  }, [autoIdentify, initialIdImage, apiKey, identify]);
+  }, [autoIdentify, initialIdImage, identify]);
 
   const onPhoto = async (e) => {
     const file = e.target.files?.[0];
@@ -87,7 +129,7 @@ export default function PlantForm({
     if (!file) return;
     try {
       const { photo, idImage: big } = await preparePhoto(file);
-      setForm((f) => ({ ...f, photo }));
+      setForm((f) => ({ ...f, photo, pendingIdent: '' }));
       setIdImage(big);
       setIdent({ status: 'idle' });
     } catch {
@@ -95,13 +137,7 @@ export default function PlantForm({
     }
   };
 
-  const runIdentify = () => {
-    if (!apiKey) {
-      setIdent({ status: 'error', code: 'no-key', message: 'Ajoutez votre clé API Claude pour identifier les plantes.' });
-      return;
-    }
-    identify(idImage || form.photo);
-  };
+  const runIdentify = () => identify(idImage || form.photo);
 
   const submit = (e) => {
     e.preventDefault();
@@ -123,7 +159,12 @@ export default function PlantForm({
       <button type="button" className="btn btn--ghost" onClick={onClose}>
         Annuler
       </button>
-      <button type="submit" form="plant-form" className="btn btn--primary" disabled={ident.status === 'loading'}>
+      <button
+        type="submit"
+        form="plant-form"
+        className="btn btn--primary"
+        disabled={ident.status === 'loading' || ident.status === 'sending'}
+      >
         <Icon name="check" size={16} /> {isEdit ? 'Enregistrer' : 'Ajouter la plante'}
       </button>
     </>
@@ -149,7 +190,7 @@ export default function PlantForm({
                 type="button"
                 className="btn btn--ghost btn--sm"
                 onClick={() => {
-                  setForm((f) => ({ ...f, photo: '' }));
+                  setForm((f) => ({ ...f, photo: '', pendingIdent: '' }));
                   setIdImage('');
                   setIdent({ status: 'idle' });
                 }}
@@ -161,19 +202,21 @@ export default function PlantForm({
             <input ref={galleryRef} type="file" accept="image/*" hidden onChange={onPhoto} />
           </div>
 
-          {form.photo && (
+          {form.photo && ident.status !== 'queued' && (
             <button
               type="button"
               className="btn btn--ai"
               onClick={runIdentify}
-              disabled={ident.status === 'loading'}
+              disabled={ident.status === 'loading' || ident.status === 'sending'}
             >
               <Icon name="sparkles" size={16} />
               {ident.status === 'loading'
                 ? 'Analyse en cours…'
-                : ident.status === 'done'
-                  ? 'Relancer l’identification'
-                  : 'Identifier la plante'}
+                : ident.status === 'sending'
+                  ? 'Envoi de la photo…'
+                  : ident.status === 'done'
+                    ? 'Relancer l’identification'
+                    : 'Identifier la plante'}
             </button>
           )}
 

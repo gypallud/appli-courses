@@ -195,6 +195,18 @@ export default function PlantDetail({ plant, season, onClose, onWater, onFertili
           <InfoTile icon="leaf" title="Notes">
             {plant.notes}
           </InfoTile>
+          {plant.pendingIdent && (
+            <InfoTile icon="clock" title="Identification par photo">
+              En cours : le PC de la maison analyse la photo, la fiche se remplira toute seule.
+            </InfoTile>
+          )}
+          {!plant.pendingIdent && plant.identInfo && (
+            <InfoTile icon="sparkles" title="Identifiée par photo">
+              {plant.identInfo.commonName} ({plant.identInfo.scientificName}), certitude {plant.identInfo.confidence}.
+              {plant.identInfo.alternatives?.length > 0 && <> Peut aussi être : {plant.identInfo.alternatives.join(', ')}.</>}
+              {plant.identInfo.healthNote && <> État sur la photo : {plant.identInfo.healthNote}</>}
+            </InfoTile>
+          )}
         </div>
       </section>
     </Modal>
