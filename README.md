@@ -80,6 +80,14 @@ Pour tester la recherche sans rien enregistrer : `node worker/worker.js --essai`
 
 Modifier le script plus tard : **Déployer > Gérer les déploiements > ✎ > Nouvelle version** (l'URL ne change pas).
 
+Ou depuis le PC avec [clasp](https://github.com/google/clasp) (`npm i -g @google/clasp`, une fois `clasp login`) ; `apps-script/.clasp.json` relie le dossier au script du Sheets :
+
+```bash
+cd apps-script && clasp push --force && clasp update-deployment AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS --description "..."
+```
+
+`clasp push` remplace le code en ligne par celui du dossier ; `update-deployment` publie une nouvelle version sur le déploiement de l'appli, même URL `/exec`.
+
 ### 2. PC
 1. Copier `worker/config.example.json` en `worker/config.json`, y mettre l'URL `/exec` et la clé du PC.
 2. Créer les tâches planifiées (photos à 12 h et 20 h, idées de recettes à 12 h 10 et 20 h 10) : `powershell -ExecutionPolicy Bypass -File worker/install-taches.ps1`.
