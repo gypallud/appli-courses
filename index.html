@@ -349,6 +349,7 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .swipe.marked .row { background: var(--danger-soft); }
 .swipe.marked .name { text-decoration: line-through; color: var(--danger); }
 .swipe.marked .qty { color: var(--danger); }
+.swipe.marked .title { text-decoration: line-through; color: var(--danger); }
 .actionbar {
   position: fixed; left: 12px; right: 12px; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 12;
   max-width: 616px; margin: 0 auto; background: var(--text); color: var(--bg); border-radius: 16px;
@@ -561,7 +562,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 23; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 24; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1265,7 +1266,7 @@ function stockRowHTML(s) {
 }
 
 // Produits marqués pour suppression, par onglet (stock : clé produit|emplacement, courses : nom normalisé)
-const markedSets = { stock: marked, courses: new Set() };
+const markedSets = { stock: marked, courses: new Set(), recettes: new Set() };
 
 function toggleMark(key, kind = tab) {
   const set = markedSets[kind];
@@ -1280,11 +1281,13 @@ function updateActionBar() {
   const show = !!set && set.size > 0 && !current;
   $('#actionBar').hidden = !show;
   document.body.classList.toggle('has-bar', show);
-  if (show) $('#actionBarText').textContent = set.size === 1 ? '1 produit à supprimer' : `${set.size} produits à supprimer`;
+  const what = tab === 'recettes' ? 'recette' : 'produit';
+  if (show) $('#actionBarText').textContent = set.size === 1 ? `1 ${what} à supprimer` : `${set.size} ${what}s à supprimer`;
 }
 
 async function confirmDelete() {
   if (tab === 'courses') return confirmDeleteCourses();
+  if (tab === 'recettes') return confirmDeleteRecipes();
   if (needSync()) return;
   const all = stockItems();
   const items = all.filter((s) => marked.has(s._key));
@@ -1302,6 +1305,26 @@ async function confirmDelete() {
     store.set('localRemovals', localRemovals);
     render();
     toast('Pas de réseau : rien n’a été supprimé');
+  }
+}
+
+// Recettes glissées à gauche : supprimées ; une idée proposée par le PC est en plus écartée des prochaines idées
+async function confirmDeleteRecipes() {
+  if (needSync()) return;
+  const set = markedSets.recettes;
+  const items = data.Recettes.filter((r) => set.has(recipeId(r)));
+  set.clear();
+  data.Recettes = data.Recettes.filter((r) => !items.includes(r));
+  store.set('data', data);
+  render();
+  try {
+    for (const r of items) {
+      await send(isProposed(r) && norm(r['Profil']) === norm(profile) ? { action: 'refuseRecipe', nom: r['Nom'], profil: profile } : { action: 'deleteRecipe', nom: r['Nom'] });
+    }
+    toast(items.length === 1 ? `« ${items[0]['Nom']} » supprimée` : `${items.length} recettes supprimées`);
+  } catch {
+    toast('Pas de réseau : recette non supprimée');
+    refresh();
   }
 }
 
@@ -1407,7 +1430,7 @@ let swipedAt = 0;
 const SWIPE_AT = 80;
 $('#view').addEventListener('pointerdown', (e) => {
   const el = e.target.closest('.swipe');
-  if (!el || e.button > 0) return;
+  if (!el || e.button > 0 || el.hasAttribute('data-noswipe')) return;
   sw = { el, row: el.querySelector('.row'), x: e.clientX, y: e.clientY, dx: 0, active: false, id: e.pointerId };
 });
 window.addEventListener('pointermove', (e) => {
@@ -1420,7 +1443,7 @@ window.addEventListener('pointermove', (e) => {
     sw.el.classList.add('dragging');
     try { sw.el.setPointerCapture(sw.id); } catch {}
   }
-  sw.dx = Math.max(-140, Math.min(140, dx));
+  sw.dx = Math.max(-140, Math.min(sw.el.dataset.kind === 'recettes' ? 0 : 140, dx));
   sw.el.dataset.dir = sw.dx > 0 ? 'right' : 'left';
   sw.row.style.transform = `translateX(${sw.dx}px)`;
 });
@@ -1844,11 +1867,14 @@ function recipeListHTML() {
     const thumb = r['Image'] ? `<img src="${esc(r['Image'])}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${emoji}'))">` : emoji;
     const meta = [r['Temps (min)'] ? '⏱ ' + fmtMin(r['Temps (min)']) : '', r['Difficulté'], norm(r['Profil']) !== me ? r['Profil'] : ''].filter(Boolean).join(' · ');
     const fitHTML = fit.total ? `<span class="fit${fit.have === fit.total ? ' full' : ''}">🧺 ${fit.have}/${fit.total}${fit.saves ? ` · ♻ ${fit.saves} à finir` : ''}</span>` : '';
-    html += `<div class="rrow" data-recipe="${recipeId(r)}">
+    const mine = !r['Profil'] || norm(r['Profil']) === me;
+    html += `<div class="swipe${markedSets.recettes.has(recipeId(r)) ? ' marked' : ''}" data-kind="recettes" data-key="${recipeId(r)}"${mine ? '' : ' data-noswipe'}>
+      <div class="swipe-bg"><span class="r">Supprimer ${ICON_TRASH}</span></div>
+      <div class="row rrow" data-recipe="${recipeId(r)}">
       <span class="thumb">${thumb}</span>
       <span class="main"><span class="title">${esc(r['Nom'])}${isProposed(r) ? '<span class="badge new">Nouvelle</span>' : ''}</span><span class="meta">${esc(meta)}</span>${fitHTML}</span>
       <button class="star${isFav(r) ? ' on' : ''}" data-fav="${recipeId(r)}" aria-label="Favori">${isFav(r) ? '★' : '☆'}</button>
-    </div>`;
+    </div></div>`;
   }
   return html + '</div>';
 }
@@ -2522,12 +2548,12 @@ document.addEventListener('click', (e) => {
   if (fv) { toggleFavorite(fv.dataset.fav); return; }
   const rcat = e.target.closest('[data-rcat]');
   if (rcat) { recipeCat = rcat.dataset.rcat; store.set('recipeCat', recipeCat); render(); return; }
-  const rc = e.target.closest('[data-recipe]');
-  if (rc) { openRecipe(rc.dataset.recipe); return; }
-  // Toucher un produit marqué l'enlève de la suppression ; juste après un glissement, on ignore le clic
+  // Toucher une ligne marquée l'enlève de la suppression ; juste après un glissement, on ignore le clic
   const m = e.target.closest('.swipe.marked');
   if (m && Date.now() - swipedAt > 300) { toggleMark(m.dataset.key, m.dataset.kind); return; }
   if (Date.now() - swipedAt < 300) return;
+  const rc = e.target.closest('[data-recipe]');
+  if (rc) { openRecipe(rc.dataset.recipe); return; }
   const dp = e.target.closest('[data-dpro]');
   if (dp) { openPriceSheet(dp.dataset.dpro); return; }
   const hd = e.target.closest('[data-habdel]');
