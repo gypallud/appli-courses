@@ -88,9 +88,20 @@ export default function PlantDetail({ plant, season, onClose, onWater, onFertili
   return (
     <Modal title="Fiche plante" onClose={onClose} footer={footer} wide>
       <section className="detail-hero">
-        <div className="detail-hero__visual">
-          <PlantAvatar plant={plant} size={150} />
-        </div>
+        <figure className="detail-hero__figure">
+          <div className="detail-hero__visual">
+            <PlantAvatar plant={plant} size={150} />
+          </div>
+          {plant.image && plant.imageCredit && (
+            <figcaption className="image-credit">
+              Photo :{' '}
+              <a href={plant.imageCredit.source} target="_blank" rel="noreferrer">
+                {plant.imageCredit.author}
+              </a>
+              {plant.imageCredit.license && ` · ${plant.imageCredit.license}`}
+            </figcaption>
+          )}
+        </figure>
         <div className="detail-hero__info">
           <span className={`status-pill status-pill--${st.state}`}>
             <span className="dot" /> {STATE_LABEL[st.state]}
