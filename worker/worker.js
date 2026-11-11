@@ -336,6 +336,27 @@ async function processDrive(t, ctx) {
   }
 }
 
+// À chaque passage : articles et prix Leclerc de tout ce qui est dans la liste de courses (onglet Prix Drive),
+// pour choisir l'article directement dans l'appli. Produits marqués « pas au Drive » (choix « - ») ignorés.
+async function refreshPrices() {
+  const ctx = await call('pending');
+  const skip = new Set((ctx.choixDrive || []).filter((m) => String(m['ID']) === '-').map((m) => normTxt(m['Produit'])));
+  const produits = ctx.courses.map((c) => c['Produit']).filter((p) => p && !skip.has(normTxt(p)));
+  if (!produits.length) { log('Prix Drive : liste de courses vide'); return; }
+  log(`Prix Drive de ${produits.length} produit(s)…`);
+  const { openDrive } = await import('./drive/drive.mjs');
+  const drive = await openDrive();
+  try {
+    const { items } = await driveSearch(ctx, drive, produits);
+    const out = items.map((it) => ({ produit: it.produit, quantite: it.quantite, candidats: it.candidats }));
+    if (TRIAL) { console.log(JSON.stringify(out.map((o) => ({ produit: o.produit, q: o.quantite, premier: o.candidats[0] })), null, 2)); return; }
+    await call('drivePrices', { items: out });
+    log(`  ✓ ${out.filter((o) => o.candidats.length).length}/${out.length} produits trouvés`);
+  } finally {
+    await drive.close().catch(() => {});
+  }
+}
+
 async function processAll() {
   const ctx = await call('pending');
   for (const t of ctx.tickets.filter(isMine)) {
@@ -389,7 +410,9 @@ async function tick() {
 }
 
 // --once : un seul passage puis arrêt (lancé à heures fixes par le Planificateur de tâches Windows)
-if (TRIAL && !RECIPES_MODE) {
+if (process.argv.includes('--prix')) {
+  refreshPrices().then(() => log('Terminé.'), (e) => log('Erreur :', e.message));
+} else if (TRIAL && !RECIPES_MODE) {
   call('pending')
     .then((ctx) => processDrive({ 'ID': 'essai', 'Statut': 'En attente', 'Fichier': JSON.stringify({ produits: ctx.courses.slice(0, 4).map((c) => c['Produit']) }) }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
@@ -399,7 +422,8 @@ if (TRIAL && !RECIPES_MODE) {
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');
-  tick().then(() => log('Terminé.'));
+  // Passage photos (12 h, 20 h) : tickets en attente, puis prix Drive de la liste de courses
+  tick().then(() => (RECIPES_MODE ? null : refreshPrices().catch((e) => log('Prix Drive :', e.message)))).then(() => log('Terminé.'));
 } else {
   log(`Surveillance des photos toutes les ${POLL_MS / 1000} s. Ctrl+C pour arrêter.`);
   tick();

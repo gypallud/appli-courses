@@ -38,14 +38,17 @@ Téléphone <── l'appli relit le Sheets (toutes les minutes quand elle est o
 
 ### Panier Leclerc Drive (Montpellier Pierres Vives)
 
-1. Courses : cocher les produits à acheter, puis **Préparer le panier Drive** (le bouton apparaît dès qu'un produit est coché).
-2. Au prochain passage du PC, il cherche 5 articles Leclerc pour chaque produit coché (sans porc, sauf si le produit de la liste en est).
-   Ils arrivent dans l'onglet **Drive** du Sheets.
-3. Dans l'appli, **Choisir les articles** : un article et un nombre par produit, ou « Ne pas prendre ».
-   L'article choisi est retenu (onglet **Choix Drive**) et proposé d'office la fois suivante (« Habituel »).
-   « ≈ prix payé » signale l'article dont le prix est proche du dernier prix de l'onglet Historique.
-4. Au passage suivant, le PC met les articles dans le panier Leclerc.
+1. À chaque passage photos (12 h, 20 h), le PC cherche jusqu'à 5 articles Leclerc pour chaque produit de la liste de courses
+   (sans porc, sauf si le produit de la liste en est) et les range dans l'onglet **Prix Drive** (`node worker/worker.js --prix` pour le lancer à la main).
+2. Dans Courses, chaque produit affiche l'article retenu et son prix : le choix enregistré (onglet **Choix Drive**, « Habituel »),
+   sinon l'article au prix proche du dernier payé (Historique), sinon le premier trouvé. Le toucher pour en changer ou « Ne pas le prendre au Drive » (ID `-`).
+3. Cocher les produits à acheter, puis **Remplir le panier Drive** : on ajuste les nombres et on envoie (ticket directement `Validé`).
+   Sans prix encore connu, le bouton devient **Préparer le panier Drive** (ancien parcours : recherche, puis choix dans l'appli).
+4. Au passage suivant, le PC met les articles dans le panier Leclerc (après avoir vérifié la connexion au compte).
 5. Le créneau et le paiement se font toujours à la main, sur Leclerc Drive.
+
+Produits habituels (★, onglet **Habituels**) : depuis la fiche d'un produit du stock ou des courses. Quand il n'y en a plus en stock
+(supprimé, quantité 0, cuisiné, ticket analysé), il revient dans la liste de courses, non coché, « Ajouté par Habituel ».
 
 Sur le PC, le serveur [mcp-leclerc-drive](https://github.com/skunkobi/mcp-leclerc-drive), en version figée 0.3.0 (`worker/drive`), pilote une fenêtre Chrome dédiée.
 Ce Chrome a son propre profil, dans `~/.mcp-leclerc-drive`.

@@ -456,6 +456,18 @@ nav .ico { position: relative; height: 24px; }
 .menu-head button { color: var(--muted); font-size: 13px; padding: 4px 8px; }
 .menu-card .rrow { border-top: 1px solid var(--line); }
 .menu-card .day { width: 64px; flex: none; font-size: 13px; font-weight: 700; color: var(--accent); }
+.dline { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; margin-top: 4px; font-size: 13px; color: var(--accent); cursor: pointer; }
+.dline .l { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-width: 0; }
+.dline b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dline b small { font-weight: 500; opacity: 0.7; }
+.dline.sugg { color: var(--muted); }
+.dline.muted { color: var(--muted); }
+.fill-row { gap: 6px 10px; flex-wrap: wrap; }
+.fill-row .main { flex: 1 1 100%; min-width: 0; }
+.fill-row .meta { font-size: 12px; color: var(--muted); }
+.fill-row .stepper { margin-left: auto; }
+.fill-row .price { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.hab { color: #e3a008; }
 .tip { background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: 14px; }
 .edit-btn {
   position: absolute; top: 16px; right: 14px; font-size: 13px; font-weight: 700; color: var(--accent);
@@ -547,7 +559,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 19; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 20; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -613,7 +625,7 @@ const fmtMin = (m) => { m = num(m); if (m === null) return ''; return m >= 60 ? 
 // ---- Données ----
 let data = store.get('data', {});
 // Une copie enregistrée par une ancienne version peut manquer d'onglets (Tickets, Emplacements…)
-for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils']) if (!Array.isArray(data[k])) data[k] = [];
+for (const k of ['Stock', 'Courses', 'Recettes', 'Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils', 'Prix Drive', 'Choix Drive', 'Habituels']) if (!Array.isArray(data[k])) data[k] = [];
 let pending = store.get('pending', {});        // coches pas encore confirmées par le tableur
 let localAdds = store.get('localAdds', []);    // produits ajoutés, en attente de confirmation
 let localRemovals = store.get('localRemovals', []); // produits du stock supprimés, en attente de confirmation
@@ -623,7 +635,7 @@ let localStockAdds = store.get('localStockAdds', []); // produits ajoutés au st
 let myUploads = store.get('myUploads', []);    // photos envoyées depuis ce téléphone
 let loading = false;
 
-const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', 'Catégories': 'Nom', 'Unités': 'Nom', Tickets: 'ID', Drive: 'Candidats', Profils: 'Profil' };
+const SHEETS = { Stock: 'Produit', Courses: 'Produit', Recettes: 'Nom', Emplacements: 'Nom', 'Catégories': 'Nom', 'Unités': 'Nom', Tickets: 'ID', Drive: 'Candidats', Profils: 'Profil', 'Prix Drive': 'Candidats', 'Choix Drive': 'Libellé', Habituels: 'Depuis' };
 
 async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
@@ -642,7 +654,7 @@ async function refresh(manual) {
   $('#refreshBtn').classList.add('spin');
   try {
     const names = Object.keys(SHEETS);
-    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils'].includes(n) ? [] : Promise.reject(e)))));
+    const results = await Promise.all(names.map((n) => fetchSheet(n).catch((e) => (['Emplacements', 'Catégories', 'Unités', 'Tickets', 'Drive', 'Profils', 'Prix Drive', 'Choix Drive', 'Habituels'].includes(n) ? [] : Promise.reject(e)))));
     data = Object.fromEntries(names.map((n, i) => [n, results[i]]));
     data.at = Date.now();
     store.set('data', data);
@@ -896,6 +908,11 @@ function openSettings() {
       <button class="btn" data-savelist="${i}" style="margin-top:10px">Enregistrer</button>
       <p class="hint">${l.hint}</p>
     </details>`).join('')}
+    <details class="set-list">
+      <summary><span>★ Produits habituels</span><small>${data.Habituels.length}</small>${ICON_CHEVRON}</summary>
+      <div class="card">${data.Habituels.map((h) => `<div class="row"><span style="flex:1">${esc(h['Produit'])}</span><button class="icon-btn" data-habdel="${esc(h['Produit'])}" aria-label="Retirer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('') || '<div class="row"><span class="hint" style="margin:0">Aucun pour l’instant</span></div>'}</div>
+      <p class="hint">Remis dans la liste de courses quand il n’y en a plus en stock. Pour en ajouter un : touche le produit dans le stock ou dans les courses, puis « Produit habituel ».</p>
+    </details>
     <p class="hint" style="margin-top:16px">Les changements valent pour tous les téléphones.</p>
     <p class="hint" style="text-align:center;margin-top:24px">Version ${APP_VERSION}</p>`);
   bg.addEventListener('click', async (e) => {
@@ -1026,6 +1043,7 @@ function openStockEdit(key) {
       <div class="chips">${[...new Set([...locs, loc])].map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-eloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
       <label class="field"><span>Catégorie</span>${selectHTML('categorie', categories(), s['Catégorie'] || 'Autre')}</label>
       <button class="btn" type="submit">Enregistrer</button>
+      ${habToggleHTML(s['Produit'])}
       <div class="field-row" style="margin-top:10px">
         <button type="button" class="btn ghost" data-tocourses>${ICON_PLUS.replace(/22/g, '18')} Courses</button>
         <button type="button" class="btn ghost" data-delstock style="color:var(--danger);background:var(--danger-soft)">${ICON_TRASH} Supprimer</button>
@@ -1042,6 +1060,8 @@ function openStockEdit(key) {
     const l = e.target.closest('[data-eloc]');
     if (l) { loc = l.dataset.eloc; bg.querySelectorAll('[data-eloc]').forEach((x) => x.classList.toggle('on', x === l)); return; }
     if (e.target.closest('[data-tocourses]')) { bg.remove(); addFromStock(key); return; }
+    const ht = e.target.closest('[data-habtoggle]');
+    if (ht) { const on = !isHabituel(s['Produit']); ht.querySelector('.switch').classList.toggle('on', on); setHabituel(s['Produit'], on, { categorie: s['Catégorie'], unite: s['Unité'] }); return; }
     const del = e.target.closest('[data-delstock]');
     if (del) {
       if (!del.dataset.sure) { del.dataset.sure = '1'; del.innerHTML = 'Confirmer'; return; }
@@ -1238,7 +1258,7 @@ function stockRowHTML(s) {
   const meta = s._dlc && !badge ? 'DLC ' + fmtDate(s._dlc) : '';
   return `<div class="swipe${marked.has(s._key) ? ' marked' : ''}" data-kind="stock" data-key="${esc(s._key)}">
     <div class="swipe-bg"><span class="l">${ICON_PLUS.replace(/22/g, '18')} Courses</span><span class="r">Supprimer ${ICON_TRASH}</span></div>
-    <div class="row"><div class="main"><div class="name">${esc(s['Produit'])}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>${badge}<div class="qty">${esc(qtyText(s['Quantité'], s['Unité']))}</div></div>
+    <div class="row"><div class="main"><div class="name">${isHabituel(s['Produit']) ? '<span class="hab">★</span> ' : ''}${esc(s['Produit'])}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>${badge}<div class="qty">${esc(qtyText(s['Quantité'], s['Unité']))}</div></div>
   </div>`;
 }
 
@@ -1322,9 +1342,12 @@ function openQtySheet(name) {
       </div>
       <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '—')}</label>
       <button class="btn" type="submit">Enregistrer</button>
+      ${habToggleHTML(name)}
     </form>`);
   const q = bg.querySelector('[name=q]'), u = bg.querySelector('[name=u]');
   bg.addEventListener('click', (e) => {
+    const ht = e.target.closest('[data-habtoggle]');
+    if (ht) { const on = !isHabituel(name); ht.querySelector('.switch').classList.toggle('on', on); setHabituel(name, on, { categorie: c['Catégorie'] }); return; }
     const s = e.target.closest('[data-step]');
     if (!s) return;
     const step = qtyStep(u.value.trim());
@@ -1432,7 +1455,10 @@ function viewDrive() {
   const t = driveTicket();
   const s = t?.statut;
   const sel = courses().filter(isSelected).length;
-  const ask = (todo) => !todo && !sel ? '' : `<button class="ideas-btn drive-btn${todo ? ' todo' : ''}" data-drive="${todo ? 'choose' : 'request'}">
+  const dt = driveTotal();
+  const ask = (todo) => !todo && !sel ? '' : !todo && dt.n ? `<button class="ideas-btn drive-btn" data-drive="fill">
+      <span class="emoji">🛒</span><span class="main"><b>Remplir le panier Drive · ${sel} produit${sel > 1 ? 's' : ''} · ≈ ${euro(dt.total)}</b><small>Avec l’article affiché sous chaque produit coché (touche-le pour en changer)</small></span>
+    </button>` : `<button class="ideas-btn drive-btn${todo ? ' todo' : ''}" data-drive="${todo ? 'choose' : 'request'}">
       <span class="emoji">🛒</span><span class="main"><b>${todo ? 'Choisir les articles Leclerc' : `Préparer le panier Drive · ${sel} produit${sel > 1 ? 's' : ''}`}</b><small>${esc(todo ? t.resume || 'Les propositions sont prêtes' : 'Avec les produits cochés : le PC cherche les articles, tu choisis, il remplit le panier')}</small></span>
     </button>`;
   const row = (icon, title, meta, extra = '') => `<div class="drive-row">${icon}<div class="main"><div class="name">${esc(title)}</div><div class="meta">${esc(meta)}</div></div>${extra}</div>`;
@@ -1520,6 +1546,105 @@ function openDriveSheet() {
   });
 }
 
+// ---- Produits habituels (onglet Habituels) : remis dans la liste quand il n'y en a plus ----
+const isHabituel = (name) => data.Habituels.some((h) => norm(h['Produit']) === norm(name));
+async function setHabituel(name, on, extra = {}) {
+  if (needSync()) return;
+  const before = data.Habituels.slice();
+  data.Habituels = on ? data.Habituels.filter((h) => norm(h['Produit']) !== norm(name)).concat({ 'Produit': name, 'Catégorie': extra.categorie || '', 'Unité': extra.unite || '' })
+    : data.Habituels.filter((h) => norm(h['Produit']) !== norm(name));
+  store.set('data', data); render();
+  try {
+    const out = await send({ action: 'setHabituel', produit: name, on, categorie: extra.categorie || '', unite: extra.unite || '' });
+    toast(on ? (out.restock ? `★ ${name} : habituel, ajouté aux courses (plus en stock)` : `★ ${name} : remis aux courses quand il n’y en aura plus`) : `${name} n’est plus un produit habituel`);
+    if (out.restock) refresh();
+  } catch { data.Habituels = before; store.set('data', data); render(); toast('Pas de réseau : réessaie'); }
+}
+const habToggleHTML = (name) => `<div class="card toggle-row" data-habtoggle style="cursor:pointer;margin:12px 0 0"><span>★ Produit habituel<br><small style="color:var(--muted)">remis dans les courses quand il n’y en a plus</small></span><span class="switch${isHabituel(name) ? ' on' : ''}"></span></div>`;
+
+// ---- Prix Drive : articles Leclerc trouvés par le PC pour chaque produit de la liste ----
+function priceInfo(produit) {
+  const row = data['Prix Drive'].find((r) => norm(r['Produit']) === norm(produit));
+  const memo = data['Choix Drive'].find((m) => norm(m['Produit']) === norm(produit));
+  let cands = [];
+  try { cands = row ? JSON.parse(row['Candidats'] || '[]') : []; } catch {}
+  const skip = memo && String(memo['ID']) === '-';
+  const chosen = memo && !skip ? cands.find((c) => String(c.id) === String(memo['ID'])) : null;
+  // Sans choix : l'habituel, sinon l'article au prix déjà payé, sinon le premier trouvé
+  const pick = skip ? null : chosen || cands.find((c) => c.m) || cands.find((c) => c.h) || cands[0] || null;
+  return { row, cands, skip, pick, chosen: !!chosen || !!(pick && pick.m), packs: Math.max(1, num(row?.['Quantité']) || 1) };
+}
+function priceLineHTML(c) {
+  const pi = priceInfo(c['Produit']);
+  if (pi.skip) return `<div class="dline muted" data-dpro="${esc(c['Produit'])}">🛒 Pas pris au Drive</div>`;
+  if (!pi.row) return data['Prix Drive'].length ? `<div class="dline muted">🛒 Prix au prochain passage du PC</div>` : '';
+  if (!pi.pick) return `<div class="dline muted" data-dpro="${esc(c['Produit'])}">🛒 Introuvable chez Leclerc</div>`;
+  return `<div class="dline${pi.chosen ? '' : ' sugg'}" data-dpro="${esc(c['Produit'])}"><span class="l">🛒 ${esc(pi.pick.l)}</span><b>${pi.pick.p ? euro(pi.pick.p * pi.packs) : ''}${pi.packs > 1 ? ` <small>(${pi.packs}×)</small>` : ''}</b></div>`;
+}
+// Total estimé des produits cochés, au prix Leclerc
+function driveTotal() {
+  let total = 0, n = 0;
+  for (const c of courses().filter(isSelected)) { const pi = priceInfo(c['Produit']); if (pi.pick?.p) { total += pi.pick.p * pi.packs; n++; } }
+  return { total, n };
+}
+
+function openPriceSheet(produit) {
+  if (needSync()) return;
+  const pi = priceInfo(produit);
+  const bg = openSheet(`<h2>🛒 ${esc(produit)}</h2>
+    <p class="hint" style="margin:-6px 4px 14px">Article Leclerc à mettre au panier. Ton choix est retenu pour les prochaines fois.</p>
+    ${pi.cands.map((c) => `<button type="button" class="dopt${!pi.skip && pi.pick && String(c.id) === String(pi.pick.id) ? ' on' : ''}" data-ppick="${esc(String(c.id))}"><span class="radio"></span><span class="main">
+      <span class="l">${esc(c.l)}${c.m ? '<span class="tag">Habituel</span>' : c.h ? '<span class="tag">≈ prix payé</span>' : ''}</span>
+      <span class="m">${c.p ? euro(c.p) : ''}${c.u ? ' · ' + esc(c.u) : ''}</span></span></button>`).join('') || '<p class="hint">Aucun article trouvé chez Leclerc au dernier passage.</p>'}
+    <button type="button" class="dopt none${pi.skip ? ' on' : ''}" data-ppick="-"><span class="radio"></span><span class="main"><span class="l">Ne pas le prendre au Drive</span></span></button>`);
+  bg.addEventListener('click', async (e) => {
+    const pk = e.target.closest('[data-ppick]');
+    if (!pk) return;
+    const id = pk.dataset.ppick, cand = pi.cands.find((c) => String(c.id) === id);
+    const list = data['Choix Drive'], i = list.findIndex((m) => norm(m['Produit']) === norm(produit));
+    const before = i >= 0 ? { ...list[i] } : null;
+    const rec = { 'Produit': produit, 'ID': id, 'Libellé': cand ? cand.l : '' };
+    if (i >= 0) Object.assign(list[i], rec); else list.push(rec);
+    store.set('data', data);
+    bg.remove(); render();
+    try { await send({ action: 'setDriveChoice', produit, id, libelle: rec['Libellé'] }); }
+    catch { if (before) Object.assign(list[i], before); else list.pop(); store.set('data', data); render(); toast('Pas de réseau : choix non enregistré'); }
+  });
+}
+
+// Remplir le panier avec les articles affichés dans la liste (produits cochés)
+function openFillSheet() {
+  if (needSync()) return;
+  const sel = courses().filter(isSelected);
+  const items = sel.map((c) => ({ c, pi: priceInfo(c['Produit']) })).filter((x) => x.pi.pick)
+    .map(({ c, pi }) => ({ produit: c['Produit'], id: String(pi.pick.id), libelle: pi.pick.l, prix: pi.pick.p || 0, q: pi.packs }));
+  const missing = sel.filter((c) => !priceInfo(c['Produit']).pick).map((c) => c['Produit']);
+  if (!items.length) { toast(missing.length ? 'Aucun article Leclerc pour ces produits : attends le prochain passage du PC' : 'Coche les produits à acheter'); return; }
+  const bg = openSheet('<div id="fillSel"></div>');
+  const draw = () => {
+    const total = items.reduce((s, it) => s + it.prix * it.q, 0);
+    bg.querySelector('#fillSel').innerHTML = `<h2>🛒 Remplir le panier Drive</h2>
+      <p class="hint" style="margin:-6px 4px 14px">Le PC met ces articles au panier au prochain passage (${ANALYSIS_TIMES}). Tu choisis ensuite le créneau et paies sur Leclerc Drive.</p>
+      <div class="card">${items.map((it, i) => `<div class="row fill-row"><div class="main"><div class="name">${esc(it.produit)}</div><div class="meta">${esc(it.libelle)}</div></div>
+        <div class="stepper"><button type="button" data-fq="${i}|-1" aria-label="Moins">−</button><span>${it.q}</span><button type="button" data-fq="${i}|1" aria-label="Plus">+</button></div>
+        <b class="price">${it.prix ? euro(it.prix * it.q) : ''}</b></div>`).join('')}</div>
+      ${missing.length ? `<p class="hint">Sans article Leclerc (à ajouter à la main) : ${esc(missing.join(', '))}</p>` : ''}
+      <div class="dfoot"><button class="btn" data-fgo>Remplir le panier · ${items.length} article${items.length > 1 ? 's' : ''} · ${euro(total)}</button></div>`;
+  };
+  draw();
+  bg.addEventListener('click', async (e) => {
+    const fq = e.target.closest('[data-fq]');
+    if (fq) { const [i, d] = fq.dataset.fq.split('|'); items[i].q = Math.max(1, Math.min(20, items[i].q + +d)); draw(); return; }
+    if (!e.target.closest('[data-fgo]')) return;
+    bg.remove();
+    try {
+      const out = await send({ action: 'requestDrive', par: profile, items: items.map((it) => ({ produit: it.produit, id: it.id, libelle: it.libelle, prix: it.prix, quantite: it.q })) });
+      setDriveLocal(out.id, 'Validé');
+      toast('C’est noté · panier rempli au prochain passage');
+    } catch { toast('Pas de réseau : réessaie'); }
+  });
+}
+
 function viewCourses() {
   const items = courses();
   if (!items.length) return (SYNC_URL ? viewDrive() : '') + empty('Liste vide', 'Rien à acheter pour le moment.');
@@ -1535,13 +1660,13 @@ function viewCourses() {
     html += `<div class="group"><h2>${esc(cat)}<span>${list.filter(isSelected).length ? `${list.filter(isSelected).length}/${list.length}` : list.length}</span></h2><div class="card">`;
     for (const c of list) {
       const high = norm(c['Priorité']) === 'haute';
-      const by = c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
+      const by = norm(c['Ajouté par']) === 'habituel' ? '★ Habituel · plus en stock' : c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
       const key = norm(c['Produit']);
       html += `<div class="swipe${markedSets.courses.has(key) ? ' marked' : ''}" data-kind="courses" data-key="${esc(key)}">
         <div class="swipe-bg"><span class="r">Supprimer ${ICON_TRASH}</span></div>
         <div class="row check-row${isSelected(c) ? ' done' : ''}" role="checkbox" aria-checked="${isSelected(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
         <span class="box">${ICON_CHECK}</span>
-        <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}</div>
+        <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}${SYNC_URL ? priceLineHTML(c) : ''}</div>
         ${high ? '<span class="prio" title="Prioritaire"></span>' : ''}
         <button class="qty-btn" data-qty="${esc(c['Produit'])}" aria-label="Modifier la quantité">${esc(qtyText(c['Quantité'], c['Unité'])) || '+ Qté'}</button></div></div>`;
     }
@@ -2366,6 +2491,10 @@ document.addEventListener('click', (e) => {
   const m = e.target.closest('.swipe.marked');
   if (m && Date.now() - swipedAt > 300) { toggleMark(m.dataset.key, m.dataset.kind); return; }
   if (Date.now() - swipedAt < 300) return;
+  const dp = e.target.closest('[data-dpro]');
+  if (dp) { openPriceSheet(dp.dataset.dpro); return; }
+  const hd = e.target.closest('[data-habdel]');
+  if (hd) { hd.closest('.row').remove(); setHabituel(hd.dataset.habdel, false); return; }
   const qb = e.target.closest('[data-qty]');
   if (qb) { openQtySheet(qb.dataset.qty); return; }
   const sr = e.target.closest('.swipe[data-kind="stock"]');
@@ -2386,7 +2515,7 @@ document.addEventListener('click', (e) => {
   if (mc) { clearMenu(mc); return; }
   if (e.target.closest('[data-rquick]')) { recipeQuick = !recipeQuick; store.set('recipeQuick', recipeQuick); render(); return; }
   const dv = e.target.closest('[data-drive]');
-  if (dv) { ({ request: requestDrive, retry: retryDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
+  if (dv) { ({ request: requestDrive, fill: openFillSheet, retry: retryDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }
   const rs = e.target.closest('[data-rsort]');
   if (rs) { recipeSort = rs.dataset.rsort; store.set('recipeSort', recipeSort); render(); return; }
   const sl = e.target.closest('[data-sloc]');

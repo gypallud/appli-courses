@@ -4,9 +4,9 @@
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
- *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, cookRecipe, clearMenu, setProfil, requestIdeas, requestDrive, driveSelect, driveCancel.
+ *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, cookRecipe, clearMenu, setProfil, setHabituel, setDriveChoice, requestIdeas, requestDrive, driveSelect, driveCancel.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
- *   driveProposals, driveDone, fail.
+ *   driveProposals, drivePrices, driveDone, fail.
  */
 // Les photos attendent dans l'onglet caché « Photos » (découpées en morceaux de 45 000 caractères, limite d'une cellule),
 // puis sont effacées une fois traitées. Pas de Google Drive : Google bloque l'accès Drive pour un script non vérifié.
@@ -29,6 +29,10 @@ const HEADERS = {
     // Menu : « 1|Lundi » (ordre|jour) pour le menu de la semaine ; Avis : « Henda:+, Gérémy:- » après l'avoir cuisinée
     'Menu', 'Cuisinée', 'Fois', 'Avis'],
   // Goûts de chaque profil, utilisés pour les idées de recettes. Refusées : recettes proposées puis rejetées (à ne plus proposer)
+  // Articles Leclerc trouvés pour chaque produit de la liste de courses, mis à jour à chaque passage du PC
+  'Prix Drive': ['Produit', 'Quantité', 'Candidats', 'Date'],
+  // Produits habituels : remis dans la liste de courses quand il n'y en a plus en stock
+  Habituels: ['Produit', 'Catégorie', 'Unité', 'Depuis'],
   Profils: ['Profil', 'Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement', 'Refusées'],
 };
 const PROFIL_FIELDS = ['Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement'];
@@ -136,7 +140,7 @@ const ACTIONS = {
       const cols = { produit: 'Produit', quantite: 'Quantité', unite: 'Unité', emplacement: 'Emplacement', categorie: 'Catégorie', dlc: 'DLC' };
       Object.keys(cols).forEach((k) => { if (it[k] !== undefined) t.set(r, cols[k], it[k]); });
       t.set(r, 'Dernière MAJ', Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'));
-      return {};
+      return { restock: restock([b.produit, it.produit]) };
     },
   },
 
@@ -151,7 +155,7 @@ const ACTIONS = {
           removed++;
         }
       });
-      return { removed };
+      return { removed, restock: restock((b.items || []).map((it) => it.produit)) };
     },
   },
 
@@ -298,6 +302,7 @@ const ACTIONS = {
         else { s.set(r, 'Quantité', String(it.quantite).replace('.', ',')); s.set(r, 'Dernière MAJ', now); }
         changed++;
       });
+      restock((b.stock || []).map((it) => it.produit));
       const t = table('Recettes');
       const r = t.find('Nom', b.nom);
       if (r >= 0) {
@@ -318,6 +323,28 @@ const ACTIONS = {
     run() {
       const t = table('Recettes');
       t.rows().forEach((row, i) => { if (row['Menu']) t.set(t.find('Nom', row['Nom']), 'Menu', ''); });
+      return {};
+    },
+  },
+
+  setHabituel: {
+    run(b) {
+      const t = table('Habituels');
+      const r = t.find('Produit', b.produit);
+      if (!b.on) { if (r >= 0) t.remove(r); return {}; }
+      if (r < 0) t.append({ 'Produit': b.produit, 'Catégorie': b.categorie || '', 'Unité': b.unite || '', 'Depuis': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd') });
+      return { restock: restock([b.produit]) };
+    },
+  },
+
+  // Article Leclerc choisi pour un produit (id « - » = ne pas le prendre au Drive) : retenu pour les fois suivantes
+  setDriveChoice: {
+    run(b) {
+      const memo = table('Choix Drive');
+      const today = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      const r = memo.find('Produit', b.produit);
+      if (r >= 0) { memo.set(r, 'ID', String(b.id || '')); memo.set(r, 'Libellé', b.libelle || ''); memo.set(r, 'Date', today); }
+      else memo.append({ 'Produit': b.produit, 'ID': String(b.id || ''), 'Libellé': b.libelle || '', 'Date': today });
       return {};
     },
   },
@@ -353,6 +380,23 @@ const ACTIONS = {
   requestDrive: {
     run(b) {
       const open = table('Tickets').rows().find((r) => r['Type'] === DRIVE && DRIVE_OPEN.indexOf(r['Statut']) >= 0);
+      if (b.items && b.items.length) {
+        // Articles déjà choisis dans la liste de courses : le PC remplit le panier au prochain passage
+        if (open) setTicket(open['ID'], 'Annulé', 'Remplacé par un nouveau panier');
+        const id = Utilities.getUuid().slice(0, 8);
+        const sh = sheet('Drive');
+        if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+        const d = table('Drive');
+        b.items.slice(0, 100).forEach((it) => d.append({
+          'Ticket': id, 'Produit': it.produit, 'Quantité': Math.max(1, Math.min(20, Math.round(+it.quantite || 1))),
+          'Candidats': JSON.stringify([{ id: String(it.id), l: it.libelle || '', p: +it.prix || 0 }]), 'Choix': String(it.id), 'Statut': 'Choisi',
+        }));
+        table('Tickets').append({
+          'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
+          'Type': DRIVE, 'Emplacement': '', 'Envoyé par': b.par || '', 'Fichier': '', 'Statut': 'Validé', 'Résumé': 'Ajout au panier au prochain passage',
+        });
+        return { id };
+      }
       if (open) return { id: open['ID'] };
       const id = Utilities.getUuid().slice(0, 8);
       table('Tickets').append({
@@ -444,6 +488,19 @@ const ACTIONS = {
     },
   },
 
+  // Prix Drive des produits de la liste de courses, remplacés à chaque passage
+  drivePrices: {
+    worker: true,
+    run(b) {
+      const sh = sheet('Prix Drive');
+      if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+      const now = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm');
+      const rows = (b.items || []).map((it) => [it.produit, it.quantite || 1, JSON.stringify(it.candidats || []), now]);
+      if (rows.length) sh.getRange(2, 1, rows.length, 4).setValues(rows);
+      return {};
+    },
+  },
+
   driveDone: {
     worker: true,
     run(b) {
@@ -507,6 +564,7 @@ const ACTIONS = {
         const r = stock.findWhere((row) => same(row['Produit'], it.produit) && same(row['Emplacement'], it.emplacement));
         if (r >= 0) stock.remove(r);
       });
+      restock((res.retirer || []).concat(res.stock || []).map((it) => it.produit));
       const hist = table('Historique');
       (res.historique || []).forEach((it) => {
         hist.append({ 'Date': res.date || today, 'Magasin': res.magasin || '', 'Produit': it.produit, 'Quantité': it.quantite || '', 'Prix': it.prix || '' });
@@ -542,6 +600,23 @@ function setTicket(id, statut, resume) {
   const photos = table('Photos');
   const p = photos.find('ID', id);
   if (p >= 0) photos.remove(p);
+}
+
+// Produits habituels qui ne sont plus en stock (ni ligne, ni quantité > 0) : remis dans la liste de courses, non cochés
+function restock(names) {
+  const want = (names || []).filter(Boolean);
+  if (!want.length) return 0;
+  const hab = table('Habituels').rows();
+  if (!hab.length) return 0;
+  const stock = table('Stock').rows(), courses = table('Courses');
+  const inStock = (p) => stock.some((s) => same(s['Produit'], p) && !(parseFloat(String(s['Quantité']).replace(',', '.')) <= 0));
+  let added = 0;
+  hab.filter((h) => want.some((n) => same(n, h['Produit']))).forEach((h) => {
+    if (inStock(h['Produit']) || courses.find('Produit', h['Produit']) >= 0) return;
+    courses.append({ 'Produit': h['Produit'], 'Quantité': '', 'Unité': '', 'Catégorie': h['Catégorie'] || 'Autre', 'Priorité': 'Moyenne', 'Ajouté par': 'Habituel', 'Statut': 'À acheter' });
+    added++;
+  });
+  return added;
 }
 
 function profilRow(name) {
