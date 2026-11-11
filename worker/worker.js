@@ -118,6 +118,8 @@ function prefsText(ctx, eaters) {
   return eaters.map((name) => {
     const p = (ctx.profils || []).find((x) => String(x['Profil']).toLowerCase() === name.toLowerCase()) || {};
     const favs = (ctx.favoris || []).filter((f) => String(f.par).toLowerCase().includes(name.toLowerCase())).map((f) => f.nom);
+    // Avis donnés après avoir cuisiné : « Henda:+, Gérémy:- »
+    const rated = (sign) => (ctx.avis || []).filter((a) => String(a.avis).split(',').some((x) => x.trim().toLowerCase() === name.toLowerCase() + ':' + sign)).map((a) => a.nom);
     const lines = [
       p['Cuisines'] && `cuisines préférées : ${p['Cuisines']}`,
       p['Aime'] && `adore : ${p['Aime']}`,
@@ -126,6 +128,8 @@ function prefsText(ctx, eaters) {
       p['Niveau'] && `niveau en cuisine : ${p['Niveau']}`,
       p['Épicé'] && `épicé : ${p['Épicé']}`,
       favs.length && `recettes favorites (pour cerner ses goûts) : ${favs.slice(0, 10).join(', ')}`,
+      rated('+').length && `a aimé après l'avoir cuisinée : ${rated('+').slice(-10).join(', ')}`,
+      rated('-').length && `n'a pas aimé (éviter ce style) : ${rated('-').slice(-10).join(', ')}`,
       p['Refusées'] && `recettes déjà refusées (ne plus proposer ni rien de très proche) : ${p['Refusées']}`,
     ].filter(Boolean);
     return `- ${name} : ${lines.length ? lines.join(' ; ') : 'pas de préférence renseignée'}`;
@@ -141,6 +145,10 @@ function equipmentOf(ctx, eaters) {
   return [...all];
 }
 
+// Jours du menu : à partir de demain
+const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const menuDays = (n) => Array.from({ length: n }, (_, i) => DAY_NAMES[(new Date().getDay() + 1 + i) % 7]);
+
 function ideasPrompt(t, ctx) {
   const req = JSON.parse(t['Fichier'] || '{}');
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -150,9 +158,15 @@ function ideasPrompt(t, ctx) {
   const eaters = eatersOf(t, req);
   const time = TIMES[req.temps] || TIMES.normal;
   const equip = equipmentOf(ctx, eaters);
+  const menuList = menuDays(req.nombre || 5);
   return `Tu es un cuisinier qui propose des recettes personnalisées à un foyer français de 3 adultes.
-Propose ${req.nombre || 3} recette(s) VRAIMENT différentes entre elles (techniques, saveurs, cuisines variées), réalistes, pour 3 personnes.
-Type de recette : ${req.type || 'Plat'}.
+${req.menu
+    ? `Compose le MENU des dîners des ${menuList.length} prochains jours (${menuList.join(', ')}), une recette par jour, dans cet ordre, pour 3 personnes.
+- Menu équilibré et varié : pas deux fois la même viande ou le même féculent d'affilée, du poisson au moins une fois et un plat végétarien si le menu fait 4 jours ou plus, des légumes chaque jour.
+- Limite le gaspillage : les produits qui périment en premier dans les premiers jours, et des ingrédients partagés entre recettes (une crème, un bouquet d'herbes, un paquet entamé) plutôt que des produits achetés pour une seule fois.
+- Un plat qui prend plus de temps est bienvenu le samedi ou le dimanche.`
+    : `Propose ${req.nombre || 3} recette(s) VRAIMENT différentes entre elles (techniques, saveurs, cuisines variées), réalistes, pour 3 personnes.
+Type de recette : ${req.type || 'Plat'}.`}
 Temps : ${time.text}
 ${req.envie ? `Envie exprimée : « ${req.envie} ».` : ''}
 
@@ -188,8 +202,10 @@ async function processIdeas(t, ctx) {
     const out = await runClaude(ideasPrompt(t, ctx), dir);
     const all = (out.recettes || []).filter((r) => r.nom && !(noPork(eaters) && r.sans_porc === false));
     // Une recette « rapide » qui dépasse nettement le temps demandé est écartée
-    const recettes = all.filter((r) => !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + 5)
-      .map((r) => ({
+    const days = menuDays(req.nombre || 5);
+    // Pour un menu, on garde tous les jours (le temps sert de consigne) ; sinon une recette trop longue est écartée
+    const recettes = all.filter((r) => req.menu || !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + 5)
+      .map((r, i) => ({
         'Nom': r.nom, 'Portions': 3, 'Temps (min)': (+r.preparation || 0) + (+r.cuisson || 0) || '',
         'Ingrédients': (r.ingredients || []).map((x) => String(x).replace(/;/g, ',')).join('; '),
         'Étapes': (r.etapes || []).map((x) => String(x).replace(/;/g, ',')).join('; '),
@@ -197,11 +213,12 @@ async function processIdeas(t, ctx) {
         'Type': r.type || req.type || 'Plat', 'Difficulté': r.difficulte || 'Facile', 'Coût': r.cout || 'Bon marché',
         'Préparation (min)': r.preparation || '', 'Cuisson (min)': r.cuisson || '', 'Image': '',
         'Catégorie': r.categorie || '', 'Astuce': String(r.astuce || '').slice(0, 300), 'Statut': 'Proposée',
+        'Menu': req.menu && days[i] ? `${i + 1}|${days[i]}` : '',
       }));
     if (!recettes.length) throw new Error(all.length ? 'recettes trop longues pour le temps demandé' : 'aucune recette proposée');
     if (TRIAL) { console.log(ideasPrompt(t, ctx)); console.log(JSON.stringify(recettes, null, 2)); return 'essai : rien enregistré'; }
-    const resume = recettes.length === 1 ? '1 recette proposée : ' + recettes[0]['Nom'] : `${recettes.length} recettes proposées`;
-    await call('applyRecipes', { id: t['ID'], recettes, resume });
+    const resume = req.menu ? `Menu de ${recettes.length} jours prêt` : recettes.length === 1 ? '1 recette proposée : ' + recettes[0]['Nom'] : `${recettes.length} recettes proposées`;
+    await call('applyRecipes', { id: t['ID'], recettes, resume, menu: !!req.menu });
     return resume;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -378,7 +395,7 @@ if (TRIAL && !RECIPES_MODE) {
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (TRIAL) {
   call('pending')
-    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': JSON.stringify({ nombre: 2, temps: 'rapide', type: 'Plat', pour: ['Henda', 'Gérémy'] }) }, ctx))
+    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': JSON.stringify(process.argv.includes('--menu') ? { nombre: 4, temps: 'normal', menu: true, pour: ['Henda', 'Gérémy'] } : { nombre: 2, temps: 'rapide', type: 'Plat', pour: ['Henda', 'Gérémy'] }) }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');

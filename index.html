@@ -430,6 +430,32 @@ nav .ico { position: relative; height: 24px; }
 .proposal p { margin: 0 0 10px; font-size: 14px; }
 .proposal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .proposal .btn { margin: 0; }
+.cook-row .name { flex: 1; min-width: 0; font-weight: 600; }
+.cook-row .name small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.cook-row .left { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.cook-row .left input { width: 62px; padding: 7px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; text-align: right; }
+.cook-actions { display: grid; gap: 10px; margin-top: 18px; }
+.cook-actions .btn { margin: 0; }
+#cookMode { position: fixed; inset: 0; z-index: 25; background: var(--bg); display: flex; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); }
+#cookMode[hidden] { display: none; }
+.ck-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.ck-link { color: var(--accent); font-weight: 700; padding: 8px; }
+.ck-step { flex: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.ck-step p { font-size: 25px; line-height: 1.4; font-weight: 600; margin: 0 0 8px; }
+.ck-step .btn { margin: 0; }
+.ck-nav { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 12px; }
+.ck-nav .btn { margin: 0; }
+.ck-timer { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 12px; margin-bottom: 8px; font-size: 14px; }
+.ck-timer span { flex: 1; }
+.ck-timer b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.ck-timer button { padding: 6px 8px; color: var(--muted); }
+.ck-timer.ring { background: var(--warn-soft); border-color: var(--warn); animation: ring 0.8s ease-in-out infinite alternate; }
+@keyframes ring { to { transform: scale(1.02); } }
+.menu-card { margin-bottom: 16px; }
+.menu-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 4px; }
+.menu-head button { color: var(--muted); font-size: 13px; padding: 4px 8px; }
+.menu-card .rrow { border-top: 1px solid var(--line); }
+.menu-card .day { width: 64px; flex: none; font-size: 13px; font-weight: 700; color: var(--accent); }
 .tip { background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: 14px; }
 .edit-btn {
   position: absolute; top: 16px; right: 14px; font-size: 13px; font-weight: 700; color: var(--accent);
@@ -508,6 +534,7 @@ nav .ico { position: relative; height: 24px; }
 </div>
 
 <div id="recipeView" hidden></div>
+<div id="cookMode" hidden></div>
 <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 <div class="actionbar" id="actionBar" hidden>
   <span class="grow" id="actionBarText"></span>
@@ -520,7 +547,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 18; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 19; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1603,8 +1630,9 @@ let recipeSearch = '';
 function viewRecettes() {
   let html = viewUploads('ideas');
   html += `<button class="ideas-btn" data-ideas>
-      <span class="emoji">✨</span><span class="main"><b>Idées avec mon stock</b><small>Selon vos goûts, rapide ou mijoté, avec ce qu’il y a à la maison</small></span>
+      <span class="emoji">✨</span><span class="main"><b>Idées de recettes</b><small>Selon vos goûts, rapide ou mijoté, avec ce qu’il y a à la maison, ou le menu de la semaine</small></span>
     </button>
+    ${menuHTML()}
     <div class="seg" role="tablist">
       <button data-filter="mine" class="${recipeFilter === 'mine' ? 'on' : ''}">Mes recettes</button>
       <button data-filter="all" class="${recipeFilter === 'all' ? 'on' : ''}">Toutes</button>
@@ -1743,34 +1771,42 @@ const IDEA_TIMES = [['rapide', '⚡ Rapide', '30 min max'], ['normal', '🕐 Nor
 const IDEA_TYPES = ['Plat', 'Soupe', 'Salade', 'Dessert', 'Goûter'];
 let ideaTime = store.get('ideaTime', 'normal');
 
-function openIdeasSheet() {
+let ideaMode = 'ideas';
+function openIdeasSheet(mode = ideaMode) {
   if (needSync()) return;
-  let n = 3;
+  ideaMode = mode;
+  const menu = mode === 'menu';
+  let n = menu ? 5 : 3;
   const urgent = stockItems().filter(isUrgent).length;
-  const bg = openSheet(`<h2>✨ Idées de recettes</h2>
-    <p class="hint" style="margin:-6px 4px 16px">Claude propose des recettes pour 3 avec ce qu’il y a en stock${urgent ? `, en priorité les ${urgent} produit${urgent > 1 ? 's' : ''} à finir vite` : ''}. Elles arrivent dans « Mes recettes » à ${IDEAS_TIMES}.</p>
+  const bg = openSheet(`<h2>✨ ${menu ? 'Menu de la semaine' : 'Idées de recettes'}</h2>
+    <div class="seg" style="margin-bottom:12px"><button type="button" data-mode="ideas" class="${menu ? '' : 'on'}">Idées</button><button type="button" data-mode="menu" class="${menu ? 'on' : ''}">📅 Menu de la semaine</button></div>
+    <p class="hint" style="margin:0 4px 16px">${menu
+      ? 'Un dîner par jour à partir de demain, varié, qui utilise le stock et limite le gaspillage (remplace le menu actuel)'
+      : 'Claude propose des recettes pour 3 avec ce qu’il y a en stock'}${urgent ? `, en priorité les ${urgent} produit${urgent > 1 ? 's' : ''} à finir vite` : ''}. Prêt à ${IDEAS_TIMES}.</p>
     <span class="field"><span>Combien de temps pour cuisiner ?</span></span>
     <div class="seg three" style="margin-bottom:14px">${IDEA_TIMES.map(([k, l, d]) => `<button type="button" data-time="${k}" class="${k === ideaTime ? 'on' : ''}">${l}<small>${d}</small></button>`).join('')}</div>
-    <span class="field"><span>Quoi ?</span></span>${pickChips('type', IDEA_TYPES, ['Plat'], false)}
+    ${menu ? '' : `<span class="field"><span>Quoi ?</span></span>${pickChips('type', IDEA_TYPES, ['Plat'], false)}`}
     <span class="field"><span>Goûts à respecter</span></span>${pickChips('pour', PROFILES, PROFILES)}
     ${hasPrefs(profile) ? '' : '<p class="hint" style="margin:-6px 4px 14px">Astuce : renseigne <button type="button" data-prefs style="color:var(--accent);font-weight:600;padding:0;font-size:inherit">tes goûts</button> pour des idées plus personnalisées.</p>'}
     <div class="card toggle-row" data-only style="cursor:pointer;margin-bottom:14px"><span>Seulement avec ce que j’ai<br><small style="color:var(--muted)">sel, poivre, huile et épices en plus</small></span><span class="switch" id="swOnly"></span></div>
-    <span class="field"><span>Combien de recettes ?</span></span>
-    <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="3" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>
+    <span class="field"><span>${menu ? 'Combien de repas ?' : 'Combien de recettes ?'}</span></span>
+    <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="${n}" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>
     <label class="field"><span>Une envie ? (facultatif)</span><input id="ideasWish" placeholder="Ex. végétarien, gratin, comme au Maroc…" maxlength="200" autocomplete="off"></label>
-    <button class="btn" id="ideasGo">Demander</button>`);
+    <button class="btn" id="ideasGo">${menu ? 'Demander le menu' : 'Demander'}</button>`);
   bg.addEventListener('click', async (e) => {
+    const md = e.target.closest('[data-mode]');
+    if (md) { if (md.dataset.mode !== ideaMode) openIdeasSheet(md.dataset.mode); return; }
     if (onPick(e)) return;
     const tm = e.target.closest('[data-time]');
     if (tm) { ideaTime = tm.dataset.time; store.set('ideaTime', ideaTime); bg.querySelectorAll('[data-time]').forEach((b) => b.classList.toggle('on', b === tm)); return; }
     if (e.target.closest('[data-only]')) { $('#swOnly').classList.toggle('on'); return; }
     const s = e.target.closest('[data-n]');
-    if (s) { n = Math.max(1, Math.min(5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
+    if (s) { n = Math.max(menu ? 2 : 1, Math.min(menu ? 7 : 5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
     if (!e.target.closest('#ideasGo')) return;
     const pour = picked(bg, 'pour');
     const req = {
       action: 'requestIdeas', nombre: n, envie: $('#ideasWish').value.trim(), par: profile, temps: ideaTime,
-      type: picked(bg, 'type')[0] || '', pour: pour.length ? pour : [profile], stockSeul: $('#swOnly').classList.contains('on'),
+      type: menu ? 'Plat' : picked(bg, 'type')[0] || '', pour: pour.length ? pour : [profile], stockSeul: $('#swOnly').classList.contains('on'), menu,
     };
     bg.remove();
     const tmp = { id: 'tmp' + Date.now(), type: 'ideas', at: Date.now(), sending: true };
@@ -1933,7 +1969,7 @@ function renderRecipe() {
     <div class="rdetail${r['Image'] ? '' : ' no-hero'}">
       <div class="rhead">
         <h1>${esc(r['Nom'])}</h1>
-        <div class="by">${esc(author)}${yes(r['Sans porc']) ? ' · Sans porc' : r['Sans porc'] ? ' · <span class="badge warn">Contient du porc</span>' : ''}</div>
+        <div class="by">${esc(author)}${yes(r['Sans porc']) ? ' · Sans porc' : r['Sans porc'] ? ' · <span class="badge warn">Contient du porc</span>' : ''}${num(r['Fois']) ? ` · Cuisinée ${num(r['Fois'])} fois` : ''}${avisOf(r).map(([p, v]) => ` · ${v === '+' ? '👍' : '👎'} ${esc(p)}`).join('')}</div>
         ${!r['Profil'] || norm(r['Profil']) === norm(profile) ? '<button class="edit-btn" data-editrecipe>Modifier</button>' : ''}
         <div class="stats">
           <div class="stat"><div class="ico">⏱</div><div class="v">${esc(fmtMin(total) || '–')}</div><div class="k">Total</div></div>
@@ -1957,15 +1993,18 @@ function renderRecipe() {
           return `<div class="ing${have ? '' : ' missing'}">${have ? `<span class="have" title="En stock">${ICON_CHECK.replace(/14/g, '11')}</span>` : ''}${q ? `<div class="q">${esc(q)}</div>` : ''}<div class="n">${esc(i.name)}</div></div>`;
         }).join('')}</div>
         <div class="legend"><span class="have" style="position:static;width:16px;height:16px;border-radius:50%;background:var(--accent);display:inline-grid;place-items:center">${ICON_CHECK.replace(/14/g, '9')}</span> déjà en stock</div>
-        ${missing.length ? `<button class="btn ghost" data-addmissing>Ajouter ${missing.length === 1 ? 'l’ingrédient manquant' : 'les ' + missing.length + ' ingrédients manquants'} à la liste</button>` : '<div class="badge ok" style="display:inline-block">Tout est en stock</div>'}
+        ${missing.length ? '' : '<div class="badge ok" style="display:inline-block;margin-bottom:10px">Tout est en stock</div>'}
+        <button class="btn ghost" data-addmissing>🛒 Choisir les courses${missing.length ? ` · ${missing.length} manquant${missing.length > 1 ? 's' : ''}` : ''}</button>
       </div>
 
       <div class="section">
         <div class="section-head"><h2>Préparation</h2></div>
         ${prep || cook ? `<div class="timeline">${prep ? `<div>Préparation<b>${esc(fmtMin(prep))}</b></div>` : ''}${cook ? `<div>Cuisson<b>${esc(fmtMin(cook))}</b></div>` : ''}${total ? `<div>Total<b>${esc(fmtMin(total))}</b></div>` : ''}</div>` : ''}
+        ${steps.length ? '<button class="btn" data-cookmode style="margin-bottom:12px">▶ Cuisiner pas à pas</button>' : ''}
         <div class="card toggle-row" data-wake style="cursor:pointer;margin-bottom:8px"><span>Garder l’écran allumé pendant la cuisine</span><span class="switch${wakeLock ? ' on' : ''}"></span></div>
         <div>${steps.map((s, i) => `<div class="step"><div class="num">${i + 1}</div><div><div class="lbl">Étape ${i + 1}</div><p>${esc(s)}</p></div></div>`).join('')}</div>
         ${r['Astuce'] ? `<div class="tip">💡 ${esc(r['Astuce'])}</div>` : ''}
+        <div class="cook-actions"><button class="btn ghost" data-cooked>✓ J’ai cuisiné cette recette</button></div>
       </div>
     </div>`;
 }
@@ -1983,13 +2022,9 @@ $('#recipeView').addEventListener('click', async (e) => {
     else toast('Non disponible sur ce téléphone');
     renderRecipe(); return;
   }
-  if (e.target.closest('[data-addmissing]')) {
-    if (needSync()) return;
-    const { r, base, servings } = current;
-    const items = split(r['Ingrédients']).map(parseIngredient).filter((i) => !inStock(i.name))
-      .map((i) => ({ produit: i.name, quantite: i.qty === null ? '' : fmtQty(i.qty * servings / base, '').trim(), unite: i.unit, categorie: 'Recettes' }));
-    addCourses(items);
-  }
+  if (e.target.closest('[data-addmissing]')) { openShopSheet(current.r['Nom'], shopItems(current.r, current.servings)); return; }
+  if (e.target.closest('[data-cookmode]')) { openCookMode(); return; }
+  if (e.target.closest('[data-cooked]')) { openCookedSheet(); return; }
 });
 async function reviewRecipe(keep) {
   if (needSync()) return;
@@ -2007,6 +2042,247 @@ window.addEventListener('popstate', () => {
   const m = location.hash.match(/^#recette\/(.+)/);
   if (m && profile) openRecipe(m[1], false); else closeRecipe();
 });
+
+// ---- Cuisiner : choisir les courses, mettre à jour le stock, mode pas à pas, menu de la semaine ----
+// Unités ramenées à une base commune pour soustraire une quantité de recette du stock (g, ml ou pièces)
+const UNIT_BASE = { g: ['g', 1], kg: ['g', 1000], mg: ['g', 0.001], ml: ['ml', 1], cl: ['ml', 10], dl: ['ml', 100], l: ['ml', 1000], '': ['pc', 1], piece: ['pc', 1] };
+const unitBase = (u) => { const k = norm(u).replace(/[.\s]/g, '').replace(/s$/, ''); return UNIT_BASE[k] || [k, 1]; };
+const fmtNum = (v) => String(v).replace('.', ',');
+// Quantité qui reste en stock après la recette, ou null si les unités ne se comparent pas
+function leftAfter(s, ing, factor) {
+  const have = num(s['Quantité']);
+  if (have === null || ing.qty === null) return null;
+  const [sd, sm] = unitBase(s['Unité']), [id, im] = unitBase(ing.unit);
+  if (sd !== id) return null;
+  const left = have - (ing.qty * factor * im) / sm;
+  if (left <= 0) return 0;
+  return sd === 'pc' ? Math.round(left * 2) / 2 : sm >= 1000 ? Math.round(left * 100) / 100 : Math.round(left);
+}
+// Produits du stock qui correspondent à un ingrédient, le plus urgent d'abord
+const stockFor = (name) => stockItems().filter((s) => matchesProduct(name, s['Produit']) && num(s['Quantité']) !== 0)
+  .sort((a, b) => (a._days ?? 9999) - (b._days ?? 9999));
+const avisOf = (r) => String(r['Avis'] || '').split(',').map((x) => x.trim().split(':')).filter((a) => a[0] && a[1]);
+
+// Rayon deviné pour un ingrédient ajouté aux courses (parmi les catégories réglées)
+const CAT_GUESS = [
+  ['Fruits & légumes', /tomate|oignon|echalote|ail\b|courgette|carotte|pomme|poire|banane|citron|orange|salade|poivron|champignon|aubergine|concombre|epinard|brocoli|chou|haricot vert|poireau|persil|coriandre|basilic|menthe|herbe|avocat|patate|legume|fruit|fraise|melon|navet|celeri|potiron|courge/],
+  ['Viande', /poulet|dinde|boeuf|veau|agneau|steak|viande|hache|escalope|canard|merguez|kefta/],
+  ['Poisson', /saumon|thon|cabillaud|colin|crevette|poisson|merlu|sardine|truite|moule|lieu/],
+  ['Produits laitiers', /lait|creme|beurre|fromage|yaourt|emmental|comte|mozzarella|parmesan|feta|chevre|ricotta|mascarpone|oeuf/],
+  ['Boulangerie', /pain|baguette|brioche/],
+  ['Surgelés', /surgele/],
+  ['Épicerie', /./],
+];
+function guessCategory(name) {
+  const n = norm(name), cats = categories();
+  const hit = CAT_GUESS.find(([c, re]) => re.test(n) && cats.some((x) => norm(x) === norm(c)));
+  return hit ? cats.find((x) => norm(x) === norm(hit[0])) : (cats.find((x) => norm(x) === 'autre') || cats[cats.length - 1]);
+}
+
+// Liste à cocher des ingrédients à mettre sur la liste de courses (manquants cochés d'office)
+function openShopSheet(title, items) {
+  if (needSync()) return;
+  const row = (it, i) => `<div class="row check-row${it.on ? ' done' : ''}" data-pk="${i}"><span class="box">${ICON_CHECK}</span>
+    <span class="name" style="flex:1">${esc(it.name)}</span><span style="color:var(--muted);font-size:13px">${esc([it.q, it.unit].filter(Boolean).join(' '))}</span></div>`;
+  items.forEach((it) => { it.on = !it.have; });
+  const miss = items.map((it, i) => [it, i]).filter(([it]) => !it.have), have = items.map((it, i) => [it, i]).filter(([it]) => it.have);
+  const bg = openSheet(`<h2>🛒 Ajouter aux courses</h2>
+    <p class="hint" style="margin:-6px 4px 14px">${esc(title)} · coche ce qu’il faut acheter.</p>
+    ${miss.length ? `<h3 style="margin-top:0">Pas en stock</h3><div class="card">${miss.map(([it, i]) => row(it, i)).join('')}</div>` : ''}
+    ${have.length ? `<h3>Déjà en stock</h3><div class="card">${have.map(([it, i]) => row(it, i)).join('')}</div>` : ''}
+    <button class="btn" id="shopGo" style="margin-top:16px"></button>`);
+  const label = () => { const n = items.filter((it) => it.on).length; const b = $('#shopGo'); b.disabled = !n; b.textContent = n ? `Ajouter ${n} produit${n > 1 ? 's' : ''} à la liste` : 'Coche au moins un produit'; };
+  label();
+  bg.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-pk]');
+    if (r) { const it = items[r.dataset.pk]; it.on = !it.on; r.classList.toggle('done', it.on); label(); return; }
+    if (!e.target.closest('#shopGo')) return;
+    const chosen = items.filter((it) => it.on);
+    if (!chosen.length) return;
+    bg.remove();
+    addCourses(chosen.map((it) => ({ produit: it.name, quantite: it.q, unite: it.unit, categorie: guessCategory(it.name) })));
+  });
+}
+// Ingrédients d'une recette pour n personnes, au format de openShopSheet
+const shopItems = (r, servings) => {
+  const base = num(r['Portions']) || 3;
+  return split(r['Ingrédients']).map(parseIngredient).map((i) => ({
+    name: i.name, q: i.qty === null ? '' : fmtQty(i.qty * (servings || base) / base, '').trim(), qty: i.qty === null ? null : i.qty * (servings || base) / base, unit: i.unit, have: inStock(i.name),
+  }));
+};
+
+// « J'ai cuisiné » : ce qu'il reste de chaque produit utilisé, plus un avis
+function openCookedSheet() {
+  if (needSync()) return;
+  const { r, base, servings } = current;
+  const factor = servings / base;
+  const rows = [], seen = new Set();
+  for (const ing of split(r['Ingrédients']).map(parseIngredient)) {
+    const s = stockFor(ing.name)[0];
+    if (!s || seen.has(s._key)) continue;
+    seen.add(s._key);
+    const left = leftAfter(s, ing, factor);
+    rows.push({ s, on: left !== null, left: left === null ? s['Quantité'] : fmtNum(left) });
+  }
+  const mine = (avisOf(r).find(([p]) => norm(p) === norm(profile)) || [])[1];
+  const bg = openSheet(`<h2>✓ J’ai cuisiné</h2>
+    <p class="hint" style="margin:-6px 4px 14px">${esc(r['Nom'])} · ${servings} personne${servings > 1 ? 's' : ''}. Coche les produits utilisés et corrige ce qu’il en reste (0 = plus rien, retiré du stock).</p>
+    ${rows.length ? `<div class="card">${rows.map((x, i) => `<div class="row check-row cook-row${x.on ? ' done' : ''}" data-ck="${i}"><span class="box">${ICON_CHECK}</span>
+      <span class="name">${esc(x.s['Produit'])}<small>${esc(x.s['Emplacement'] || '')} · avant ${esc(qtyText(x.s['Quantité'], x.s['Unité']) || '?')}</small></span>
+      <label class="left">reste <input inputmode="decimal" value="${esc(x.left)}" data-left="${i}"> <span>${esc(x.s['Unité'] || '')}</span></label></div>`).join('')}</div>`
+      : '<p class="hint">Aucun ingrédient de cette recette n’est dans le stock.</p>'}
+    <h3>C’était comment ?</h3>${pickChips('avis', ['👍 Bon', '👎 Pas terrible'], mine === '+' ? ['👍 Bon'] : mine === '-' ? ['👎 Pas terrible'] : [], false)}
+    <button class="btn" id="cookGo">Valider</button>`);
+  bg.addEventListener('input', (e) => { const i = e.target.dataset.left; if (i !== undefined) { rows[i].on = true; bg.querySelector(`[data-ck="${i}"]`).classList.add('done'); } });
+  bg.addEventListener('click', async (e) => {
+    if (onPick(e)) return;
+    const ck = e.target.closest('[data-ck]');
+    if (ck && !e.target.closest('label')) { const x = rows[ck.dataset.ck]; x.on = !x.on; ck.classList.toggle('done', x.on); return; }
+    if (!e.target.closest('#cookGo')) return;
+    const used = rows.map((x, i) => ({ ...x, q: bg.querySelector(`[data-left="${i}"]`).value.trim() || '0' })).filter((x) => x.on);
+    const av = picked(bg, 'avis')[0];
+    const avis = av ? (av.startsWith('👍') ? '+' : '-') : '';
+    $('#cookGo').disabled = true;
+    try {
+      await send({ action: 'cookRecipe', nom: r['Nom'], profil: profile, avis, stock: used.map((x) => ({ produit: x.s['Produit'], emplacement: x.s['Emplacement'], quantite: x.q })) });
+    } catch { toast('Pas de réseau : réessaie'); $('#cookGo').disabled = false; return; }
+    // Mise à jour locale en attendant la relecture du tableur
+    const finished = [];
+    for (const x of used) {
+      const row = data.Stock.find((s) => stockKey(s) === x.s._key);
+      if (!row) continue;
+      if (!(num(x.q) > 0)) { data.Stock = data.Stock.filter((s) => s !== row); finished.push(x.s); } else row['Quantité'] = x.q;
+    }
+    r['Cuisinée'] = new Date().toISOString().slice(0, 10);
+    r['Fois'] = String((num(r['Fois']) || 0) + 1);
+    if (avis) r['Avis'] = avisOf(r).filter(([p]) => norm(p) !== norm(profile)).map((a) => a.join(':')).concat(profile + ':' + avis).join(', ');
+    store.set('data', data);
+    bg.remove(); render(); if (current) renderRecipe();
+    toast(used.length ? `Stock mis à jour · ${used.length} produit${used.length > 1 ? 's' : ''}` : 'C’est noté');
+    // Produits terminés : proposer de les racheter
+    if (finished.length) setTimeout(() => openShopSheet('Terminés avec cette recette', finished.map((s) => ({ name: s['Produit'], q: '', unit: '', have: false }))), 400);
+  });
+}
+
+// Mode cuisine : une étape à la fois en grand, minuteurs détectés dans le texte
+let cook = null;
+function stepMinutes(text) {
+  const out = [];
+  for (const m of text.matchAll(/(\d+)(?:\s*(?:à|-)\s*(\d+))?\s*(min(?:utes?)?|h(?:eures?)?)\b/gi)) {
+    const v = (+(m[2] || m[1])) * (/^h/i.test(m[3]) ? 60 : 1);
+    if (v > 0 && v <= 600 && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+function openCookMode() {
+  const steps = split(current.r['Étapes']);
+  if (!steps.length) { toast('Pas d’étapes pour cette recette'); return; }
+  cook = { steps, i: 0, timers: [] };
+  try { cook.audio = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  if (!wakeLock && 'wakeLock' in navigator) navigator.wakeLock.request('screen').then((w) => { wakeLock = w; }).catch(() => {});
+  $('#cookMode').hidden = false;
+  renderCook();
+  cook.tick = setInterval(tickCook, 1000);
+}
+function closeCookMode() {
+  if (!cook) return;
+  clearInterval(cook.tick);
+  cook.audio?.close?.();
+  cook = null;
+  $('#cookMode').hidden = true;
+  if (current) renderRecipe();
+}
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function timersHTML() {
+  return cook.timers.map((t, k) => {
+    const left = Math.max(0, Math.round((t.end - Date.now()) / 1000));
+    return `<div class="ck-timer${left ? '' : ' ring'}"><span>⏱ ${esc(t.label)}</span><b>${left ? mmss(left) : 'Terminé !'}</b><button data-ckstop="${k}" aria-label="Arrêter">✕</button></div>`;
+  }).join('');
+}
+function renderCook() {
+  const { steps, i } = cook;
+  const mins = stepMinutes(steps[i]);
+  $('#cookMode').innerHTML = `
+    <div class="ck-top"><button class="icon-btn" data-ckclose aria-label="Fermer">✕</button><b>Étape ${i + 1} / ${steps.length}</b><button class="ck-link" data-ckings>Ingrédients</button></div>
+    <div class="progress"><div style="width:${Math.round(((i + 1) / steps.length) * 100)}%"></div></div>
+    <div id="ckTimers">${timersHTML()}</div>
+    <div class="ck-step"><p>${esc(steps[i])}</p>
+      ${mins.map((m) => `<button class="btn ghost" data-cktimer="${m}">⏱ Lancer ${esc(fmtMin(m))}</button>`).join('')}</div>
+    <div class="ck-nav">
+      <button class="btn ghost" data-ckprev${i ? '' : ' disabled'}>← Avant</button>
+      ${i < steps.length - 1 ? '<button class="btn" data-cknext>Suivante →</button>' : '<button class="btn" data-ckdone>✓ J’ai cuisiné</button>'}
+    </div>`;
+}
+function beep() {
+  const a = cook?.audio;
+  if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 800]);
+  if (!a) return;
+  a.resume?.();
+  [0, 0.45, 0.9].forEach((t) => {
+    const o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(a.destination);
+    g.gain.setValueAtTime(0.4, a.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + t + 0.35);
+    o.start(a.currentTime + t); o.stop(a.currentTime + t + 0.4);
+  });
+}
+function tickCook() {
+  if (!cook || !cook.timers.length) return;
+  for (const t of cook.timers) if (!t.rang && Date.now() >= t.end) { t.rang = true; beep(); toast(`Minuteur terminé : ${t.label}`); }
+  const box = $('#ckTimers');
+  if (box) box.innerHTML = timersHTML();
+}
+$('#cookMode').addEventListener('click', (e) => {
+  if (e.target.closest('[data-ckclose]')) { closeCookMode(); return; }
+  if (e.target.closest('[data-cknext]')) { cook.i++; renderCook(); return; }
+  if (e.target.closest('[data-ckprev]')) { cook.i = Math.max(0, cook.i - 1); renderCook(); return; }
+  if (e.target.closest('[data-ckdone]')) { closeCookMode(); openCookedSheet(); return; }
+  const tm = e.target.closest('[data-cktimer]');
+  if (tm) {
+    cook.audio?.resume?.();
+    cook.timers.push({ label: `Étape ${cook.i + 1} · ${fmtMin(tm.dataset.cktimer)}`, end: Date.now() + tm.dataset.cktimer * 60000 });
+    $('#ckTimers').innerHTML = timersHTML(); return;
+  }
+  const st = e.target.closest('[data-ckstop]');
+  if (st) { cook.timers.splice(+st.dataset.ckstop, 1); $('#ckTimers').innerHTML = timersHTML(); return; }
+  if (e.target.closest('[data-ckings]')) {
+    const items = shopItems(current.r, current.servings);
+    openSheet(`<h2>Ingrédients · ${current.servings} pers.</h2><div class="card">${items.map((it) => `<div class="row"><span style="flex:1">${esc(it.name)}</span><b>${esc([it.q, it.unit].filter(Boolean).join(' '))}</b></div>`).join('')}</div>`);
+  }
+});
+
+// Menu de la semaine : recettes dont la colonne Menu vaut « 1|Lundi », « 2|Mardi »…
+const menuRecipes = () => visibleRecipes().filter((r) => r['Menu']).sort((a, b) => parseInt(a['Menu']) - parseInt(b['Menu']));
+function menuHTML() {
+  const menu = menuRecipes();
+  if (!menu.length) return '';
+  return `<div class="card menu-card">
+    <div class="menu-head"><b>📅 Menu de la semaine</b><button data-menuclear>Effacer</button></div>
+    ${menu.map((r) => `<div class="rrow" data-recipe="${recipeId(r)}"><span class="day">${esc(String(r['Menu']).split('|')[1] || '')}</span>
+      <span class="main"><span class="title">${esc(r['Nom'])}${isProposed(r) ? '<span class="badge new">Nouvelle</span>' : ''}</span><span class="meta">${esc([r['Temps (min)'] ? '⏱ ' + fmtMin(r['Temps (min)']) : '', r['Difficulté']].filter(Boolean).join(' · '))}</span></span></div>`).join('')}
+    <div style="padding:10px 12px 12px"><button class="btn ghost" data-menushop>🛒 Choisir les courses du menu</button></div>
+  </div>`;
+}
+function menuShop() {
+  // Ingrédients de tout le menu, additionnés quand le nom et l'unité sont les mêmes
+  const all = new Map();
+  for (const r of menuRecipes()) for (const it of shopItems(r)) {
+    const k = norm(it.name) + '|' + unitBase(it.unit)[0];
+    const prev = all.get(k);
+    if (!prev) { all.set(k, { ...it }); continue; }
+    const [, pm] = unitBase(prev.unit), [, im] = unitBase(it.unit);
+    if (prev.qty !== null && it.qty !== null) { prev.qty += (it.qty * im) / pm; prev.q = fmtQty(prev.qty, '').trim(); }
+  }
+  openShopSheet('Menu de la semaine', [...all.values()]);
+}
+async function clearMenu(btn) {
+  if (!btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Confirmer'; return; }
+  if (needSync()) return;
+  const before = data.Recettes.map((r) => r['Menu']);
+  data.Recettes.forEach((r) => { r['Menu'] = ''; });
+  store.set('data', data); render();
+  try { await send({ action: 'clearMenu' }); toast('Menu effacé'); }
+  catch { data.Recettes.forEach((r, i) => { r['Menu'] = before[i]; }); render(); toast('Pas de réseau : réessaie'); }
+}
 
 // ---- Rendu ----
 const VIEWS = {
@@ -2105,6 +2381,9 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-repair]')) { repair(); return; }
   if (e.target.closest('[data-ideas]')) { openIdeasSheet(); return; }
   if (e.target.closest('[data-prefs]')) { openPrefsSheet(); return; }
+  if (e.target.closest('[data-menushop]')) { menuShop(); return; }
+  const mc = e.target.closest('[data-menuclear]');
+  if (mc) { clearMenu(mc); return; }
   if (e.target.closest('[data-rquick]')) { recipeQuick = !recipeQuick; store.set('recipeQuick', recipeQuick); render(); return; }
   const dv = e.target.closest('[data-drive]');
   if (dv) { ({ request: requestDrive, retry: retryDrive, choose: openDriveSheet, cancel: cancelDrive })[dv.dataset.drive](); return; }

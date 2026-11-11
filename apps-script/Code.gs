@@ -4,7 +4,7 @@
  * Déployer en Application Web : exécuter en tant que « Moi », accès « Tout le monde ».
  *
  * Actions de l'appli : setStatus, addCourses, updateCourse, removeCourses, addStock, updateStock, removeStock, setEmplacements, setListe, upload,
- *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, setProfil, requestIdeas, requestDrive, driveSelect, driveCancel.
+ *   saveRecipe, setFavorite, deleteRecipe, keepRecipe, refuseRecipe, cookRecipe, clearMenu, setProfil, requestIdeas, requestDrive, driveSelect, driveCancel.
  * Actions du PC (protégées par la clé WORKER_KEY des propriétés du script) : pending, image, apply, applyRecipes,
  *   driveProposals, driveDone, fail.
  */
@@ -25,7 +25,9 @@ const HEADERS = {
   // Article Leclerc choisi pour chaque produit : proposé d'office la fois suivante
   'Choix Drive': ['Produit', 'ID', 'Libellé', 'Date'],
   Recettes: ['Nom', 'Portions', 'Temps (min)', 'Ingrédients', 'Étapes', 'Sans porc', 'Date', 'Profil', 'Partagée', 'Type', 'Difficulté', 'Coût',
-    'Préparation (min)', 'Cuisson (min)', 'Image', 'Catégorie', 'Favoris', 'Statut', 'Astuce'],
+    'Préparation (min)', 'Cuisson (min)', 'Image', 'Catégorie', 'Favoris', 'Statut', 'Astuce',
+    // Menu : « 1|Lundi » (ordre|jour) pour le menu de la semaine ; Avis : « Henda:+, Gérémy:- » après l'avoir cuisinée
+    'Menu', 'Cuisinée', 'Fois', 'Avis'],
   // Goûts de chaque profil, utilisés pour les idées de recettes. Refusées : recettes proposées puis rejetées (à ne plus proposer)
   Profils: ['Profil', 'Cuisines', 'Aime', "N'aime pas", 'Allergies', 'Niveau', 'Épicé', 'Équipement', 'Refusées'],
 };
@@ -282,6 +284,44 @@ const ACTIONS = {
     },
   },
 
+  // « J'ai cuisiné » : met à jour le stock (quantité restante, 0 = plus rien) et note la recette
+  cookRecipe: {
+    run(b) {
+      const now = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      const s = table('Stock');
+      let changed = 0;
+      (b.stock || []).forEach((it) => {
+        const r = s.findWhere((row) => same(row['Produit'], it.produit) && same(row['Emplacement'], it.emplacement));
+        if (r < 0) return;
+        const q = parseFloat(String(it.quantite).replace(',', '.'));
+        if (!(q > 0)) s.remove(r);
+        else { s.set(r, 'Quantité', String(it.quantite).replace('.', ',')); s.set(r, 'Dernière MAJ', now); }
+        changed++;
+      });
+      const t = table('Recettes');
+      const r = t.find('Nom', b.nom);
+      if (r >= 0) {
+        t.set(r, 'Cuisinée', now);
+        t.set(r, 'Fois', (+t.get(r, 'Fois') || 0) + 1);
+        if (b.avis === '+' || b.avis === '-') {
+          const list = String(t.get(r, 'Avis') || '').split(',').map((x) => x.trim()).filter(Boolean)
+            .filter((x) => !same(x.split(':')[0], b.profil));
+          list.push(b.profil + ':' + b.avis);
+          t.set(r, 'Avis', list.join(', '));
+        }
+      }
+      return { changed };
+    },
+  },
+
+  clearMenu: {
+    run() {
+      const t = table('Recettes');
+      t.rows().forEach((row, i) => { if (row['Menu']) t.set(t.find('Nom', row['Nom']), 'Menu', ''); });
+      return {};
+    },
+  },
+
   setProfil: {
     run(b) {
       const p = profilRow(b.profil);
@@ -298,7 +338,7 @@ const ACTIONS = {
         'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
         'Type': 'Idées recettes', 'Emplacement': '', 'Envoyé par': b.par || '',
         'Fichier': JSON.stringify({
-          nombre: Math.max(1, Math.min(5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200),
+          nombre: Math.max(1, Math.min(b.menu ? 7 : 5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200), menu: !!b.menu,
           temps: ['rapide', 'normal', 'long'].indexOf(b.temps) >= 0 ? b.temps : 'normal',
           type: String(b.type || '').slice(0, 20), pour: (b.pour || []).map(String).slice(0, 5), stockSeul: !!b.stockSeul,
         }),
@@ -360,6 +400,7 @@ const ACTIONS = {
         courses: table('Courses').rows(),
         recettes: table('Recettes').rows().map((r) => r['Nom']),
         favoris: table('Recettes').rows().filter((r) => r['Favoris']).map((r) => ({ nom: r['Nom'], par: r['Favoris'] })),
+        avis: table('Recettes').rows().filter((r) => r['Avis']).map((r) => ({ nom: r['Nom'], avis: r['Avis'] })),
         profils: table('Profils').rows(),
         emplacements: listValues('Emplacements'),
         categories: listValues('Catégories'),
@@ -373,8 +414,12 @@ const ACTIONS = {
     run(b) {
       const t = table('Recettes');
       const today = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+      // Un nouveau menu remplace le précédent
+      if (b.menu) t.rows().forEach((row) => { if (row['Menu']) t.set(t.find('Nom', row['Nom']), 'Menu', ''); });
       (b.recettes || []).forEach((rec) => {
-        if (!rec['Nom'] || t.find('Nom', rec['Nom']) >= 0) return;
+        if (!rec['Nom']) return;
+        const old = t.find('Nom', rec['Nom']);
+        if (old >= 0) { if (rec['Menu']) t.set(old, 'Menu', rec['Menu']); return; }
         rec['Date'] = today;
         t.append(rec);
       });
