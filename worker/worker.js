@@ -261,7 +261,7 @@ function lastPrice(ctx, produit) {
 }
 
 // Noms de la maison → mots que Leclerc comprend
-const SYNONYMS = [[/\bsopalin\b/, 'essuie-tout'], [/\bpq\b/, 'papier toilette'], [/\bpapier wc\b/, 'papier toilette'], [/\bcoca\b(?!-)/, 'coca-cola']];
+const SYNONYMS = [[/\bpacks? d['’ ]?eau\b/, 'pack eau'], [/\bsopalin\b/, 'essuie-tout'], [/\bpq\b/, 'papier toilette'], [/\bpapier wc\b/, 'papier toilette'], [/\bcoca\b(?!-)/, 'coca-cola']];
 const keyWords = (s) => normTxt(s).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !['les', 'des', 'aux', 'avec', 'pour', 'sans'].includes(w)).map((w) => w.replace(/[sx]$/, ''));
 // « Papier toilette (double ou triple épaisseur) » : on cherche « papier toilette », la parenthèse sert à départager
 function searchTerms(produit) {
@@ -281,9 +281,10 @@ async function driveSearch(ctx, drive, produits) {
     // Leclerc renvoie des articles sans rapport quand il ne trouve rien (promos) : on ne garde que ceux qui contiennent un mot du produit.
     // D'abord ceux dont le nom commence par le produit, puis ceux qui ont tous les mots, puis les mots de la parenthèse.
     const score = (p) => {
-      const l = normTxt(p.l), hits = words.filter((w) => l.includes(w)).length;
+      // Mots entiers seulement : « eau » ne doit pas trouver « peaux »
+      const l = normTxt(p.l), has = (w) => new RegExp('(^|[^a-z0-9])' + w).test(l), hits = words.filter(has).length;
       if (!hits) return 0;
-      return (words[0] && l.startsWith(words[0]) ? 4 : 0) + (hits === words.length ? 2 : 0) + hits * 0.1 + bonus.filter((w) => l.includes(w)).length;
+      return (words[0] && l.startsWith(words[0]) ? 4 : 0) + (hits === words.length ? 2 : 0) + hits * 0.1 + bonus.filter(has).length;
     };
     const search = async (query) => {
       try { return parseProducts(await drive.call('search_product', { query })).filter((p) => p.ok && (porkOk || !isPork(p.l))); }
