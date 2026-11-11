@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* Surface des cartes, champs et feuilles (blanc en clair, ardoise en sombre) */
+@theme {
+  --color-surface: #ffffff;
+}
+
+/*
+ * Mode sombre : plutôt que d'ajouter des variantes dark: partout, on redéfinit les variables de couleur.
+ * L'échelle slate est inversée (fond foncé, texte clair) et les teintes pâles (-50/-100/-200)
+ * deviennent des teintes sombres ; les textes -700/-800 deviennent clairs. Les -500/-600 ne changent pas.
+ */
+html.dark {
+  color-scheme: dark;
+  --color-surface: #151d2c;
+  --color-slate-50: #0b1220;
+  --color-slate-100: #1d2638;
+  --color-slate-200: #2b3548;
+  --color-slate-300: #3d485c;
+  --color-slate-400: #6b7a90;
+  --color-slate-500: #8e9bb0;
+  --color-slate-600: #b5c0cf;
+  --color-slate-700: #d4dbe5;
+  --color-slate-800: #e7ecf2;
+  --color-slate-900: #f4f7fa;
+
+  --color-sky-50: #0c2a3c; --color-sky-100: #0f3a52; --color-sky-200: #155069; --color-sky-700: #7dd3fc; --color-sky-800: #7dd3fc;
+  --color-indigo-50: #1c1f4a; --color-indigo-100: #262a63; --color-indigo-200: #343a85; --color-indigo-700: #a5b4fc; --color-indigo-800: #a5b4fc;
+  --color-teal-50: #0b2e2b; --color-teal-100: #0f3f3a; --color-teal-200: #145650; --color-teal-700: #5eead4; --color-teal-800: #5eead4;
+  --color-lime-50: #1e2c0b; --color-lime-100: #283b0e; --color-lime-200: #365013; --color-lime-700: #bef264; --color-lime-800: #bef264;
+  --color-amber-50: #33240a; --color-amber-100: #45300c; --color-amber-200: #5c4010; --color-amber-700: #fcd34d; --color-amber-800: #fcd34d;
+  --color-orange-50: #35200d; --color-orange-100: #482a10; --color-orange-200: #613815; --color-orange-700: #fdba74; --color-orange-800: #fdba74;
+  --color-rose-50: #3a1520; --color-rose-100: #4d1b2a; --color-rose-200: #682338; --color-rose-700: #fda4af; --color-rose-800: #fda4af;
+  --color-fuchsia-50: #33153a; --color-fuchsia-100: #451c4e; --color-fuchsia-200: #5d2569; --color-fuchsia-700: #f0abfc; --color-fuchsia-800: #f0abfc;
+  --color-violet-50: #241a45; --color-violet-100: #30225c; --color-violet-200: #412e7c; --color-violet-700: #c4b5fd; --color-violet-800: #c4b5fd;
+  --color-red-50: #3a1616; --color-red-100: #4d1c1c; --color-red-200: #692424; --color-red-700: #fca5a5; --color-red-800: #fca5a5;
+  --color-emerald-50: #0c2e24; --color-emerald-100: #0f3e30; --color-emerald-200: #145542; --color-emerald-700: #6ee7b7; --color-emerald-800: #6ee7b7;
+}
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-slate-50 text-slate-800 antialiased; }
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-surface px-3 py-2.5 text-base text-slate-800
+      outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100;
+  }
+  .label { @apply mb-1.5 block text-sm font-medium text-slate-600; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition active:scale-[.98] disabled:opacity-50;
+  }
+  .btn-primary { @apply bg-indigo-600 text-white hover:bg-indigo-500; }
+  .btn-ghost { @apply bg-slate-100 text-slate-700 hover:bg-slate-200; }
+  .btn-danger { @apply bg-red-50 text-red-700 hover:bg-red-100; }
+  .card { @apply rounded-2xl bg-surface shadow-sm ring-1 ring-slate-200/70; }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.animate-sheet { animation: sheet-in .22s ease-out; }
+.animate-fade { animation: fade-in .18s ease-out; }
+.animate-pop { animation: pop .35s ease-out; }
