@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8fafc" />
+    <title>Ménage & Maison</title>
+    <link rel="icon" type="image/png" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Maison" />
+    <script>
+      // Applique le thème avant le premier affichage (évite un flash blanc en mode sombre)
+      try {
+        var t = (JSON.parse(localStorage.getItem('menage-maison.prefs')) || {}).theme || 'system';
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="./assets/index-CL6Ss4QF.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Du4ZdKdG.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
