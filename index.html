@@ -424,7 +424,7 @@ nav .ico { position: relative; height: 24px; }
 .fit.full { color: var(--accent); background: var(--accent-soft); }
 .chips.pick { margin-bottom: 14px; }
 .chips.pick .chip { padding: 8px 12px; }
-.seg.three button { font-size: 13px; line-height: 1.25; padding: 8px 4px; }
+.seg.three button { font-size: 13px; line-height: 1.25; padding: 8px 2px; }
 .seg.three small { display: block; font-weight: 500; opacity: 0.7; font-size: 11px; }
 .badge.new { background: var(--accent); color: var(--on-accent); margin-left: 6px; vertical-align: 2px; }
 .proposal { background: var(--accent-soft); border-radius: 14px; padding: 14px; margin: 14px 0 4px; }
@@ -562,7 +562,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 25; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 26; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy', 'Lucas'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1955,7 +1955,7 @@ function openPrefsSheet() {
   });
 }
 
-const IDEA_TIMES = [['rapide', '⚡ Rapide', '30 min max'], ['normal', '🕐 Normal', '1 h max'], ['long', '🍲 J’ai le temps', 'mijoté, four…']];
+const IDEA_TIMES = [['ultra', '🚀 Ultra', '10 à 15 min'], ['rapide', '⚡ Rapide', '30 min max'], ['normal', '🕐 Normal', '1 h max'], ['long', '🍲 Long', 'mijoté, four…']];
 const IDEA_TYPES = ['Plat', 'Soupe', 'Salade', 'Dessert', 'Goûter'];
 let ideaTime = store.get('ideaTime', 'normal');
 

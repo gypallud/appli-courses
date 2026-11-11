@@ -377,7 +377,7 @@ const ACTIONS = {
         'Type': 'Idées recettes', 'Emplacement': '', 'Envoyé par': b.par || '',
         'Fichier': JSON.stringify({
           nombre: Math.max(1, Math.min(b.menu ? 7 : 5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200), menu: !!b.menu,
-          temps: ['rapide', 'normal', 'long'].indexOf(b.temps) >= 0 ? b.temps : 'normal',
+          temps: ['ultra', 'rapide', 'normal', 'long'].indexOf(b.temps) >= 0 ? b.temps : 'normal',
           type: String(b.type || '').slice(0, 20), pour: (b.pour || []).map(String).slice(0, 5), stockSeul: !!b.stockSeul,
         }),
         'Statut': 'En attente', 'Résumé': '',

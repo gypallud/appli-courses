@@ -107,6 +107,7 @@ function runClaude(text, cwd) {
 
 // Temps de cuisine demandé : limite (préparation + cuisson) et consigne pour Claude
 const TIMES = {
+  ultra: { max: 15, text: 'ULTRA RAPIDE : 10 à 15 minutes maximum au total, préparation comprise. Assemblages, poêle ou micro-ondes, cuissons très courtes, presque pas de découpe, une seule poêle ou un seul plat.' },
   rapide: { max: 30, text: 'RAPIDE : 30 minutes maximum au total (préparation + cuisson), peu de vaisselle, faisable un soir de semaine.' },
   normal: { max: 60, text: 'NORMAL : 1 heure maximum au total (préparation + cuisson).' },
   long: { max: 0, text: 'J’AI LE TEMPS : plats mijotés, au four, plus élaborés ou de week-end, 1 h à 3 h au total acceptables (beaucoup de temps de cuisson sans surveillance, c’est bien).' },
@@ -204,7 +205,7 @@ async function processIdeas(t, ctx) {
     // Une recette « rapide » qui dépasse nettement le temps demandé est écartée
     const days = menuDays(req.nombre || 5);
     // Pour un menu, on garde tous les jours (le temps sert de consigne) ; sinon une recette trop longue est écartée
-    const recettes = all.filter((r) => req.menu || !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + 5)
+    const recettes = all.filter((r) => req.menu || !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + (max <= 15 ? 0 : 5))
       .map((r, i) => ({
         'Nom': r.nom, 'Portions': 3, 'Temps (min)': (+r.preparation || 0) + (+r.cuisson || 0) || '',
         'Ingrédients': (r.ingredients || []).map((x) => String(x).replace(/;/g, ',')).join('; '),
