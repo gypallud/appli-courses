@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { PLACEHOLDER_NAME, fetchPlantResults, plantFieldsFrom } from '../services/pcIdentifier';
+import { findPlantImage } from '../services/plantImage';
 
 const POLL_MS = 30000;
 
@@ -49,6 +50,9 @@ export function usePendingIdentifications(plants, update, notify) {
             identInfo: identInfoFrom(r),
           });
           notify(`Plante identifiée : ${r.commonName}`, 'sparkles');
+          if (!plant.image && !plant.noWebImage) {
+            findPlantImage(r.scientificName || r.commonName).then((found) => found && update(plant.id, found));
+          }
         } else if (res?.statut === 'Erreur' || res === undefined) {
           // Erreur du PC, ou demande disparue du Sheets : on arrête d'attendre
           update(plant.id, { pendingIdent: '' });

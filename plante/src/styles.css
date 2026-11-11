@@ -2551,3 +2551,57 @@ input[type='range'] {
 .settings__paid a {
   color: var(--green-600);
 }
+
+/* --- Images des plantes (Wikimédia) ------------------------------------ */
+.detail-hero__figure {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.detail-hero__visual .plant-photo {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+}
+
+.image-credit {
+  max-width: 180px;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-3);
+}
+
+.image-credit a {
+  color: inherit;
+}
+
+.plant-card__visual .plant-photo,
+.plant-form__preview .plant-photo {
+  object-fit: cover;
+}
+
+@media (max-width: 860px) {
+  .detail-hero__figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .image-credit {
+    max-width: none;
+    text-align: center;
+  }
+}
+
+.web-image {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.web-image .image-credit {
+  max-width: none;
+  margin: 0;
+}

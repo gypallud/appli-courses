@@ -33,3 +33,8 @@ cd .. && git add -A && git commit -m "…" && git push
 ```
 
 `npm run build` écrit la version publiée dans `../plantes/`, servie par GitHub Pages.
+
+## Images des plantes
+
+Chaque fiche affiche une image libre de droits trouvée sur Wikipédia / Wikimedia Commons, avec son auteur et sa licence (en bas de l'image, dans la fiche).
+Les 7 plantes de départ ont leur image dans `public/plants/` ; pour une nouvelle plante, l'appli cherche l'image toute seule à partir de la variété (ou via « Image du web » dans le formulaire). Ordre d'affichage : image du web, sinon photo prise, sinon illustration dessinée.

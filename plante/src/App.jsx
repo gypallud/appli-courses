@@ -11,6 +11,7 @@ import { usePlants } from './hooks/usePlants';
 import { useSeason } from './hooks/useSeason';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { usePendingIdentifications } from './hooks/usePendingIdentifications';
+import { findPlantImage } from './services/plantImage';
 import { waterStatus } from './utils/care';
 import { formatShort } from './utils/dates';
 
@@ -55,12 +56,24 @@ export default function App() {
     notify(`Engrais apporté à ${p.name}`, 'sprout');
   };
 
+  // Plante sans image : on en cherche une sur Wikipédia (sauf si l'utilisateur l'a retirée exprès)
+  const addWebImage = useCallback(
+    async (id, plant) => {
+      if (plant.image || plant.noWebImage || plant.pendingIdent) return;
+      const found = await findPlantImage(plant.variety || plant.name);
+      if (found) update(id, found);
+    },
+    [update],
+  );
+
   const handleSave = (data) => {
     if (editingPlant) {
       update(editingPlant.id, data);
+      addWebImage(editingPlant.id, data);
       notify(`Fiche de ${data.name} mise à jour`);
     } else {
       const created = add(data);
+      addWebImage(created.id, created);
       notify(`${created.name} a rejoint votre jungle 🌱`, 'leaf');
     }
     closeForm();

@@ -1,4 +1,6 @@
-// Illustration vectorielle générée selon le type de feuillage (ou photo si fournie).
+import { useState } from 'react';
+
+// Image de la plante : image du web, photo, ou illustration vectorielle selon le type de feuillage.
 
 const shade = (hex, amt) => {
   const n = parseInt(hex.slice(1), 16);
@@ -103,12 +105,18 @@ function Cactus({ base, dark, light }) {
 }
 
 export default function PlantAvatar({ plant, size = 120, bg = '#eef1e6' }) {
-  if (plant.photo) {
+  // Images qui n'ont pas pu se charger (hors ligne…) : on passe à la suivante
+  const [failed, setFailed] = useState([]);
+  // Priorité : image du web (Wikimédia), puis photo prise par l'utilisateur, sinon l'illustration dessinée
+  const src = [plant.image, plant.photo].filter(Boolean).find((s) => !failed.includes(s));
+  if (src) {
     return (
       <img
         className="plant-photo"
-        src={plant.photo}
+        src={src}
         alt={plant.name}
+        loading="lazy"
+        onError={() => setFailed((f) => [...f, src])}
         style={{ width: size, height: size }}
       />
     );

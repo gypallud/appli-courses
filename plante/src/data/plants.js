@@ -23,6 +23,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-bougainvillier',
+      image: './plants/bougainvillier.jpg',
+      imageCredit: { author: "BKP", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Bougainvillea_in_a_pot.JPG" },
       name: 'Bougainvillier',
       variety: 'Bougainvillea glabra',
       location: 'Balcon',
@@ -44,6 +46,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-monstera',
+      image: './plants/monstera.jpg',
+      imageCredit: { author: "Wikimedia Commons", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Monstera_deliciosa2.jpg" },
       name: 'Monstera',
       variety: 'Monstera deliciosa',
       location: 'Salon',
@@ -62,6 +66,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-adansonii',
+      image: './plants/adansonii.jpg',
+      imageCredit: { author: "Diogo Luiz", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Monstera_adansonii_127416487.jpg" },
       name: 'Monstera adansonii',
       variety: 'Monstera adansonii',
       location: 'Salon (suspension)',
@@ -83,6 +89,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-dracaena',
+      image: './plants/dracaena.jpg',
+      imageCredit: { author: "Wikimedia Commons", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Dracaena_marginata_IndoorPlant_0605k.jpg" },
       name: 'Dragonnier',
       variety: 'Dracaena marginata',
       location: 'Salon',
@@ -103,6 +111,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-ctenanthe',
+      image: './plants/ctenanthe.jpg',
+      imageCredit: { author: "Patrice78500", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Ctenanthe_setosa_-_Serres_d%27Auteuil.JPG" },
       name: 'Ctenanthe Grey Star',
       variety: "Ctenanthe setosa 'Grey Star'",
       location: 'Salon',
@@ -124,6 +134,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-euphorbe',
+      image: './plants/euphorbe.jpg',
+      imageCredit: { author: "EvanBaldonado", license: "CC BY 4.0", source: "https://commons.wikimedia.org/wiki/File:African_milk_tree_(Euphorbia_trigona).jpg" },
       name: 'Euphorbe',
       variety: 'Euphorbia trigona',
       location: 'Salon',
@@ -144,6 +156,8 @@ export function createStarterPlants() {
     {
       ...base,
       id: 'mine-epiphyllum',
+      image: './plants/epiphyllum.jpg',
+      imageCredit: { author: "Agnieszka Kwiecień, Nova", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Disocactus_anguliger_syn._Epiphyllum_anguliger_2024-02-29_Graz_01.jpg" },
       name: 'Cactus arête de poisson',
       variety: 'Epiphyllum anguliger',
       location: 'Salon (suspension)',
@@ -173,6 +187,9 @@ export function emptyPlant() {
     avatar: 'monstera',
     color: AVATAR_COLORS[0],
     photo: '',
+    // Image d'illustration trouvée sur le web (Wikimédia), affichée en priorité ; crédit de l'auteur
+    image: '',
+    imageCredit: null,
     light: 'indirecte',
     waterSummer: 7,
     waterWinter: 12,

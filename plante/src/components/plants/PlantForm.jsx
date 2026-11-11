@@ -14,6 +14,7 @@ import {
   sendPlantPhoto,
 } from '../../services/pcIdentifier';
 import { identInfoFrom } from '../../hooks/usePendingIdentifications';
+import { findPlantImage } from '../../services/plantImage';
 
 // Le module IA (SDK Anthropic) n'est chargé qu'au premier usage pour garder l'app légère.
 const loadIdentifier = () => import('../../services/plantIdentifier');
@@ -54,16 +55,30 @@ export default function PlantForm({
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }));
 
-  const applyResult = useCallback((r) => {
-    setForm((f) => ({
-      ...f,
-      ...plantFieldsFrom(r),
-      name: !f.name.trim() || f.name === PLACEHOLDER_NAME ? r.commonName : f.name,
-      pendingIdent: '',
-      identInfo: identInfoFrom(r),
-    }));
-    setIdent({ status: 'done', result: r });
+  // Image d'illustration trouvée sur Wikipédia / Wikimedia Commons
+  const [imgSearch, setImgSearch] = useState('idle'); // idle | loading | none
+  const lookupImage = useCallback(async (name) => {
+    if (!name) return;
+    setImgSearch('loading');
+    const found = await findPlantImage(name);
+    if (found) setForm((f) => ({ ...f, ...found, noWebImage: false }));
+    setImgSearch(found ? 'idle' : 'none');
   }, []);
+
+  const applyResult = useCallback(
+    (r) => {
+      setForm((f) => ({
+        ...f,
+        ...plantFieldsFrom(r),
+        name: !f.name.trim() || f.name === PLACEHOLDER_NAME ? r.commonName : f.name,
+        pendingIdent: '',
+        identInfo: identInfoFrom(r),
+      }));
+      setIdent({ status: 'done', result: r });
+      lookupImage(r.scientificName || r.commonName);
+    },
+    [lookupImage],
+  );
 
   const identify = useCallback(
     async (image) => {
@@ -200,6 +215,41 @@ export default function PlantForm({
             )}
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={onPhoto} />
             <input ref={galleryRef} type="file" accept="image/*" hidden onChange={onPhoto} />
+          </div>
+
+          <div className="web-image">
+            {form.image ? (
+              <>
+                {form.imageCredit && (
+                  <span className="image-credit">
+                    Image : {form.imageCredit.author}
+                    {form.imageCredit.license && ` · ${form.imageCredit.license}`}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setForm((f) => ({ ...f, image: '', imageCredit: null, noWebImage: true }))}
+                >
+                  Retirer l’image du web
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={imgSearch === 'loading' || !(form.variety || form.name).trim()}
+                onClick={() => lookupImage(form.variety || form.name)}
+                title="Cherche une image libre de droits sur Wikipédia à partir de la variété"
+              >
+                <Icon name="search" size={15} />
+                {imgSearch === 'loading'
+                  ? 'Recherche…'
+                  : imgSearch === 'none'
+                    ? 'Aucune image trouvée'
+                    : 'Image du web'}
+              </button>
+            )}
           </div>
 
           {form.photo && ident.status !== 'queued' && (

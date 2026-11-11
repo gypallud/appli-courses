@@ -22,6 +22,16 @@ export function usePlants() {
     });
   }, [plants, setPlants]);
 
+  // Plantes de départ déjà enregistrées sans image : on leur ajoute l'image et son crédit
+  useEffect(() => {
+    const starters = Object.fromEntries(createStarterPlants().map((p) => [p.id, p]));
+    const missing = (p) => starters[p.id] && !p.image;
+    if (!plants.some(missing)) return;
+    setPlants((ps) =>
+      ps.map((p) => (missing(p) ? { ...p, image: starters[p.id].image, imageCredit: starters[p.id].imageCredit } : p)),
+    );
+  }, [plants, setPlants]);
+
   const add = useCallback(
     (data) => {
       const plant = { ...data, id: uid() };
