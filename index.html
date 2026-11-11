@@ -478,6 +478,8 @@ nav .ico { position: relative; height: 24px; }
 .loc-row input { flex: 1; border: 0; background: none; padding: 8px 0; outline: none; min-width: 0; }
 .loc-row .icon-btn { width: 36px; height: 36px; }
 .set-list { margin-top: 18px; }
+.req-list { margin: 8px 0 24px; }
+.req-list .uploads { margin-bottom: 0; }
 .set-list summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-weight: 600; cursor: pointer; }
 .set-list summary::-webkit-details-marker { display: none; }
 .set-list summary span { flex: 1; }
@@ -559,7 +561,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 22; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 23; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1776,9 +1778,13 @@ const isProposed = (r) => norm(r['Statut']) === 'proposee';
 let recipeSearch = '';
 
 function viewRecettes() {
-  let html = viewUploads('ideas');
-  html += `<button class="ideas-btn" data-ideas>
-      <span class="emoji">✨</span><span class="main"><b>Idées de recettes</b><small>Selon vos goûts, rapide ou mijoté, avec ce qu’il y a à la maison, ou le menu de la semaine</small></span>
+  // En haut : seulement le bouton de demande ; les demandes en cours s'y résument en une ligne, l'historique est replié en bas
+  const reqs = uploads('ideas');
+  const waiting = reqs.filter((u) => u.sending || (u.state !== 'done' && u.state !== 'error')).length;
+  let html = `<button class="ideas-btn" data-ideas>
+      <span class="emoji">✨</span><span class="main"><b>Demander des recettes</b><small>${waiting
+        ? `⏳ ${waiting} demande${waiting > 1 ? 's' : ''} en cours · prêtes au prochain passage`
+        : 'Idées ou menu de la semaine, selon vos goûts et ce qu’il y a à la maison'}</small></span>
     </button>
     ${menuHTML()}
     <div class="seg" role="tablist">
@@ -1790,8 +1796,16 @@ function viewRecettes() {
       <input type="search" id="recipeSearch" placeholder="Rechercher une recette ou un ingrédient" value="${esc(recipeSearch)}" autocomplete="off" enterkeyhint="search">
     </label>
     <div id="recipeList">${recipeListHTML()}</div>`;
+  if (reqs.length) {
+    html += `<details class="set-list req-list"${reqOpen ? ' open' : ''}>
+      <summary><span>Mes demandes de recettes</span><small>${waiting ? `${waiting} en cours` : reqs.length}</small>${ICON_CHEVRON}</summary>
+      ${viewUploads('ideas')}
+    </details>`;
+  }
   return html;
 }
+let reqOpen = false;
+document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('req-list')) reqOpen = e.target.open; }, true);
 
 function recipeListHTML() {
   const me = norm(profile);

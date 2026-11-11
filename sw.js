@@ -1,6 +1,6 @@
 ﻿// Permet l'installation sur l'Ã©cran d'accueil et l'ouverture hors ligne.
 // RÃ©seau d'abord, cache en secours. Les donnÃ©es du tableur ne passent pas par ici.
-const CACHE = 'courses-v22';
+const CACHE = 'courses-v23';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
