@@ -259,20 +259,39 @@ function lastPrice(ctx, produit) {
   return prix ? (q && q > 1 && Number.isInteger(q) ? prix / q : prix) : null;
 }
 
+// Noms de la maison → mots que Leclerc comprend
+const SYNONYMS = [[/\bsopalin\b/, 'essuie-tout'], [/\bpq\b/, 'papier toilette'], [/\bpapier wc\b/, 'papier toilette'], [/\bcoca\b(?!-)/, 'coca-cola']];
+const keyWords = (s) => normTxt(s).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !['les', 'des', 'aux', 'avec', 'pour', 'sans'].includes(w)).map((w) => w.replace(/[sx]$/, ''));
+// « Papier toilette (double ou triple épaisseur) » : on cherche « papier toilette », la parenthèse sert à départager
+function searchTerms(produit) {
+  const extra = (String(produit).match(/\(([^)]*)\)/) || [])[1] || '';
+  let q = normTxt(String(produit).replace(/\([^)]*\)/g, ' ')).replace(/\s+/g, ' ').trim();
+  for (const [re, rep] of SYNONYMS) q = q.replace(re, rep);
+  return { q, words: keyWords(q), bonus: keyWords(extra) };
+}
+
 async function driveSearch(ctx, drive, produits) {
   const memo = new Map((ctx.choixDrive || []).map((m) => [normTxt(m['Produit']), m]));
   const items = [];
   const wanted = new Set(produits.map(normTxt));
   for (const c of ctx.courses.filter((c) => c['Produit'] && wanted.has(normTxt(c['Produit'])))) {
     const porkOk = isPork(c['Produit']); // du porc seulement s'il est demandé explicitement dans la liste
-    let found = [];
-    try { found = parseProducts(await drive.call('search_product', { query: c['Produit'] })); }
-    catch (e) { log('  recherche impossible :', c['Produit'], e.message); }
-    found = found.filter((p) => p.ok && (porkOk || !isPork(p.l)));
-    // Leclerc mélange les rayons (« Pommes » renvoie aussi des jus) : d'abord les articles dont le nom commence par le produit
-    const words = normTxt(c['Produit']).split(/[^a-z0-9]+/).filter((w) => w.length > 2).map((w) => w.replace(/[sx]$/, ''));
-    const score = (p) => { const l = normTxt(p.l); return (words[0] && l.startsWith(words[0]) ? 2 : 0) + (words.every((w) => l.includes(w)) ? 1 : 0); };
-    found = found.map((p, i) => ({ p, i, s: score(p) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.p);
+    const { q, words, bonus } = searchTerms(c['Produit']);
+    // Leclerc renvoie des articles sans rapport quand il ne trouve rien (promos) : on ne garde que ceux qui contiennent un mot du produit.
+    // D'abord ceux dont le nom commence par le produit, puis ceux qui ont tous les mots, puis les mots de la parenthèse.
+    const score = (p) => {
+      const l = normTxt(p.l), hits = words.filter((w) => l.includes(w)).length;
+      if (!hits) return 0;
+      return (words[0] && l.startsWith(words[0]) ? 4 : 0) + (hits === words.length ? 2 : 0) + hits * 0.1 + bonus.filter((w) => l.includes(w)).length;
+    };
+    const search = async (query) => {
+      try { return parseProducts(await drive.call('search_product', { query })).filter((p) => p.ok && (porkOk || !isPork(p.l))); }
+      catch (e) { log('  recherche impossible :', query, e.message); return []; }
+    };
+    let found = (await search(q)).map((p, i) => ({ p, i, s: score(p) })).filter((x) => x.s > 0);
+    // Rien de pertinent : nouvelle recherche avec les deux premiers mots
+    if (!found.length && words.length > 2) found = (await search(words.slice(0, 2).join(' '))).map((p, i) => ({ p, i, s: score(p) })).filter((x) => x.s > 0);
+    found = found.sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.p);
     const m = memo.get(normTxt(c['Produit']));
     const known = m && found.find((p) => String(p.id) === String(m['ID']));
     const price = lastPrice(ctx, c['Produit']);
