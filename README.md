@@ -14,6 +14,7 @@ Appli web de la maison : stock (frigo, congélateur, placard… paramétrables),
 | `apps-script/Code.gs` | Écritures dans le Sheets : coches, ajouts, stocks, réception des photos |
 | `worker/` | Sur le PC : analyse des photos avec Claude Code et mise à jour du Sheets |
 | `menage/`, `maison/` | Appli « Ménage & Maison » (sources React et version publiée, synchronisée via l'onglet Ménage et l'action `menageSync`) : https://gypallud.github.io/appli-courses/maison/ — voir `menage/README.md` |
+| `plante/`, `plantes/` | Appli « Chlorophylle » : suivi des plantes d'intérieur, calendrier d'arrosage, diagnostic et identification par photo (sources React et version publiée) : https://gypallud.github.io/appli-courses/plantes/ — voir `plante/README.md` |
 
 ## Installer sur le téléphone
 
