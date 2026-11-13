@@ -380,11 +380,15 @@ const ACTIONS = {
   requestIdeas: {
     run(b) {
       const id = Utilities.getUuid().slice(0, 8);
+      // Menu : la liste des repas choisis (jour + matin / midi / soir), 21 au plus (7 jours × 3 repas)
+      const creneaux = b.menu ? (b.creneaux || []).filter((c) => c && c.jour && ['Matin', 'Midi', 'Soir'].indexOf(c.repas) >= 0).slice(0, 21)
+        .map((c) => ({ date: String(c.date || '').slice(0, 10), jour: String(c.jour).slice(0, 10), repas: c.repas })) : [];
       table('Tickets').append({
         'ID': id, 'Date': Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm'),
         'Type': 'Idées recettes', 'Emplacement': '', 'Envoyé par': b.par || '',
         'Fichier': JSON.stringify({
-          nombre: Math.max(1, Math.min(b.menu ? 7 : 5, +b.nombre || 3)), envie: String(b.envie || '').slice(0, 200), menu: !!b.menu,
+          nombre: creneaux.length || Math.max(1, Math.min(b.menu ? 7 : 5, +b.nombre || 3)), creneaux,
+          envie: String(b.envie || '').slice(0, 200), menu: !!b.menu,
           temps: ['ultra', 'rapide', 'normal', 'long'].indexOf(b.temps) >= 0 ? b.temps : 'normal',
           type: String(b.type || '').slice(0, 20), pour: (b.pour || []).map(String).slice(0, 5), stockSeul: !!b.stockSeul,
         }),

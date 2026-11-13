@@ -191,6 +191,43 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 }
 .qty-btn:active { background: var(--accent-soft); }
 .check-row.done .qty-btn { background: var(--surface); }
+/* Ligne de courses : la case coche, le reste ouvre la fiche du produit */
+.box-btn { padding: 12px; margin: -12px -4px -12px -12px; flex: none; display: grid; place-items: center; }
+.qty-pill {
+  color: var(--text); font-size: 14px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+}
+.qty-pill.empty { color: var(--muted); font-weight: 500; border-style: dashed; }
+.check-row.done .qty-pill { background: var(--surface); }
+.chev { color: var(--muted); font-size: 22px; line-height: 1; margin: 0 -4px 0 -4px; flex: none; }
+/* Fiches : sections, listes déroulantes et lignes cliquables bien visibles */
+.fsec { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 18px 4px 8px; }
+.fsec:first-of-type { margin-top: 4px; }
+.sheet-sub { color: var(--muted); font-size: 13px; margin: -10px 0 8px; }
+label.field select, .field select[name] {
+  appearance: none; -webkit-appearance: none; padding-right: 38px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.link-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; color: inherit; }
+.link-row .main { flex: 1; min-width: 0; }
+.link-row .main small { display: block; color: var(--muted); font-size: 13px; }
+.link-row .go { color: var(--accent); font-weight: 600; white-space: nowrap; font-size: 14px; }
+.link-row:active { background: var(--accent-soft); }
+.fopts .card { margin: 0 0 8px !important; }
+.act-row { display: flex; gap: 8px; margin-top: 10px; }
+.act-row .btn { flex: 1; }
+.btn.danger { background: var(--danger-soft); color: var(--danger); }
+/* Menu : grille jours × repas */
+.slots { display: grid; grid-template-columns: 1fr repeat(3, 64px); gap: 6px; align-items: center; margin-bottom: 10px; }
+.slots .h { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
+.slots .d { font-size: 14px; font-weight: 600; }
+.slots .d small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.slot { height: 40px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-size: 17px; display: grid; place-items: center; color: var(--muted); }
+.slot.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.slot-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.slot-tools button { font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 6px 12px; }
+.menu-card .day small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
 .qty-stepper { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .qty-stepper button {
   width: 52px; height: 52px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
@@ -476,7 +513,7 @@ nav .ico { position: relative; height: 24px; }
 .menu-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 4px; }
 .menu-head button { color: var(--muted); font-size: 13px; padding: 4px 8px; }
 .menu-card .rrow { border-top: 1px solid var(--line); }
-.menu-card .day { width: 64px; flex: none; font-size: 13px; font-weight: 700; color: var(--accent); }
+.menu-card .day { width: 76px; flex: none; font-size: 13px; font-weight: 700; color: var(--accent); }
 .dline { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; margin-top: 4px; font-size: 13px; color: var(--accent); cursor: pointer; }
 .dline .l { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-width: 0; }
 .dline b { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -582,7 +619,7 @@ nav .ico { position: relative; height: 24px; }
 // ---- Configuration ----
 const SHEET_ID = '1SIeLdirTtJMi7qgARrFlL5LdFQWUgBzN85fqVGJnFio';
 // URL de l'application Web Apps Script (se termine par /exec). Vide = consultation seule.
-const APP_VERSION = 27; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
+const APP_VERSION = 28; // à augmenter à chaque publication : les téléphones se rechargent tout seuls
 const SYNC_URL ='https://script.google.com/macros/s/AKfycbwGgt_IxmGdadlqYG8ru6sr_2eTBPgU4gdSV0XzewvZ5jIUl6CjM0AHgwRHa_9OfuxS/exec';
 const PROFILES = ['Henda', 'Gérémy', 'Lucas'];
 const DEFAULT_LOCATIONS = ['Frigo', 'Congélateur', 'Placard'];
@@ -1177,6 +1214,7 @@ let profile = store.get('profile', null);
 let tab = store.get('tab', 'stock');
 let recipeFilter = store.get('recipeFilter', 'mine');
 
+const ICON_BOX = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/></svg>';
 const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_CAMERA = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const ICON_TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
@@ -1397,25 +1435,44 @@ function openQtySheet(name) {
   const c = courses().find((x) => x['Produit'] === name);
   if (!c) return;
   const high = norm(c['Priorité']) === 'haute';
-  const bg = openSheet(`<h2>Modifier le produit</h2>
+  const by = norm(c['Ajouté par']) === 'habituel' ? '★ Habituel · plus en stock' : c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
+  // Article Leclerc : une ligne qui s'ouvre (choix de l'article), ou un simple texte quand le PC n'a encore rien trouvé
+  let drive = '';
+  if (SYNC_URL) {
+    const pi = priceInfo(name);
+    drive = pi.row
+      ? `<button type="button" class="card link-row" data-fdrive><span class="main">${pi.skip ? 'Pas pris au Drive' : pi.pick ? esc(pi.pick.l) : 'Introuvable chez Leclerc'}<small>${pi.pick?.p ? euro(pi.pick.p * pi.packs) + (pi.packs > 1 ? ` (${pi.packs}×)` : '') + ' · ' : ''}${pi.cands.length} article${pi.cands.length > 1 ? 's' : ''} trouvé${pi.cands.length > 1 ? 's' : ''}</small></span><span class="go">Changer ›</span></button>`
+      : `<p class="hint" style="margin:0 4px">Les articles Leclerc arrivent au prochain passage du PC (${ANALYSIS_TIMES}).</p>`;
+  }
+  const bg = openSheet(`<h2>${esc(name)}</h2>
+    ${by ? `<p class="sheet-sub">${esc(by)}</p>` : ''}
     <form id="qtyForm">
-      <label class="field"><span>Nom</span><input name="nom" value="${esc(name)}" required autocomplete="off"></label>
-      <span class="field"><span>Quantité</span></span>
+      <div class="fsec">Quantité</div>
       <div class="qty-stepper">
         <button type="button" data-step="-1" aria-label="Moins">−</button>
         <input name="q" inputmode="decimal" value="${esc(c['Quantité'])}" placeholder="1" autocomplete="off">
         <button type="button" data-step="1" aria-label="Plus">+</button>
       </div>
-      <div class="field-row">
-        <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '—')}</label>
-        <label class="field"><span>Catégorie</span>${selectHTML('cat', categories(), c['Catégorie'] || 'Autre')}</label>
+      <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '— aucune —')}</label>
+      ${drive ? `<div class="fsec">🛒 Article Leclerc Drive</div>${drive}` : ''}
+      <div class="fsec">Produit</div>
+      <label class="field"><span>Nom</span><input name="nom" value="${esc(name)}" required autocomplete="off"></label>
+      <label class="field"><span>Catégorie</span>${selectHTML('cat', categories(), c['Catégorie'] || 'Autre')}</label>
+      <div class="fopts">
+        <div class="card toggle-row" data-prio style="cursor:pointer"><span>Prioritaire<br><small style="color:var(--muted)">en haut de sa catégorie, pastille rouge</small></span><span class="switch${high ? ' on' : ''}"></span></div>
+        ${habToggleHTML(name)}
       </div>
-      <div class="card toggle-row" data-prio style="cursor:pointer;margin-bottom:12px"><span>Prioritaire</span><span class="switch${high ? ' on' : ''}"></span></div>
-      <button class="btn" type="submit">Enregistrer</button>
-      ${habToggleHTML(name)}
+      <button class="btn" type="submit" style="margin-top:10px">Enregistrer</button>
+      <div class="act-row">
+        <button type="button" class="btn ghost" data-fstock>${ICON_BOX} En stock</button>
+        <button type="button" class="btn danger" data-fdel>${ICON_TRASH} Supprimer</button>
+      </div>
     </form>`);
   const f = bg.querySelector('#qtyForm'), q = f.q, u = f.u;
   bg.addEventListener('click', (e) => {
+    if (e.target.closest('[data-fdrive]')) { bg.remove(); openPriceSheet(name); return; }
+    if (e.target.closest('[data-fstock]')) { bg.remove(); openToStockSheet(name); return; }
+    if (e.target.closest('[data-fdel]')) { bg.remove(); markedSets.courses.add(norm(name)); render(); return; }
     const ht = e.target.closest('[data-habtoggle]');
     if (ht) { const on = !isHabituel(name); ht.querySelector('.switch').classList.toggle('on', on); setHabituel(name, on, { categorie: f.cat.value }); return; }
     const pr = e.target.closest('[data-prio]');
@@ -1455,13 +1512,86 @@ function openQtySheet(name) {
   });
 }
 
+// Emplacement probable d'un produit acheté : là où il est déjà rangé, sinon selon sa catégorie
+function guessLocation(name, cat) {
+  const locs = locations();
+  const has = (re) => locs.find((l) => re.test(norm(l)));
+  const known = data.Stock.find((x) => norm(x['Produit']) === norm(name) && x['Emplacement']);
+  if (known && locs.some((l) => norm(l) === norm(known['Emplacement']))) return locs.find((l) => norm(l) === norm(known['Emplacement']));
+  const c = norm(cat + ' ' + name);
+  return (/surgel|glace/.test(c) && has(/congel/))
+    || (/frais|lait|creme|fromage|yaourt|beurre|viande|volaille|poulet|boeuf|poisson|charcut|traiteur|oeuf/.test(c) && has(/frigo|refrig/))
+    || (/entretien|menage|nettoy|lessive|vaisselle|essuie|sopalin/.test(c) && has(/nettoy|entretien|menage/))
+    || (/hygiene|beaute|toilette|douche|shampo|dentifrice|savon/.test(c) && has(/bain/))
+    || has(/placard/) || locs[0] || 'Placard';
+}
+
+// Produit acheté : il quitte la liste de courses et rejoint le stock
+function openToStockSheet(name) {
+  if (needSync()) return;
+  const c = courses().find((x) => x['Produit'] === name);
+  if (!c) return;
+  const locs = locations();
+  let loc = guessLocation(name, c['Catégorie'] || '');
+  const bg = openSheet(`<h2>${ICON_BOX} Ranger dans le stock</h2>
+    <p class="sheet-sub">${esc(name)} · retiré de la liste de courses</p>
+    <form id="toStock">
+      <div class="fsec">Quantité achetée</div>
+      <div class="qty-stepper">
+        <button type="button" data-step="-1" aria-label="Moins">−</button>
+        <input name="q" inputmode="decimal" value="${esc(String(c['Quantité'] || '1'))}" autocomplete="off">
+        <button type="button" data-step="1" aria-label="Plus">+</button>
+      </div>
+      <label class="field"><span>Unité</span>${selectHTML('u', units(), c['Unité'], '— aucune —')}</label>
+      <div class="fsec">Où le ranger ?</div>
+      <div class="chips">${locs.map((l) => `<button type="button" class="chip${l === loc ? ' on' : ''}" data-tloc="${esc(l)}">${esc(l)}</button>`).join('')}</div>
+      <label class="field"><span>À consommer avant (facultatif)</span><input type="date" name="dlc"></label>
+      <button class="btn" type="submit">Mettre en stock</button>
+    </form>`);
+  const f = bg.querySelector('#toStock');
+  bg.addEventListener('click', (e) => {
+    const tl = e.target.closest('[data-tloc]');
+    if (tl) { loc = tl.dataset.tloc; bg.querySelectorAll('[data-tloc]').forEach((x) => x.classList.toggle('on', x === tl)); return; }
+    const st = e.target.closest('[data-step]');
+    if (!st) return;
+    const step = qtyStep(f.u.value.trim());
+    f.q.value = String(Math.max(0, Math.round(((num(f.q.value) ?? 0) + step * +st.dataset.step) * 100) / 100)).replace('.', ',');
+  });
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const it = { produit: name, quantite: f.q.value.trim().replace(',', '.') || '1', unite: f.u.value.trim(), categorie: c['Catégorie'] || 'Autre', emplacement: loc, dlc: f.dlc.value };
+    bg.remove();
+    // À l'écran tout de suite : ajouté au stock, retiré des courses
+    const row = { 'Produit': it.produit, 'Catégorie': it.categorie, 'Quantité': it.quantite, 'Unité': it.unite, 'Emplacement': it.emplacement, 'DLC': it.dlc, _at: Date.now() };
+    const key = norm(name);
+    localStockAdds.push(row); store.set('localStockAdds', localStockAdds);
+    const rem = { key, at: Date.now() };
+    localCourseRemovals.push(rem); store.set('localCourseRemovals', localCourseRemovals);
+    const addsBefore = localAdds;
+    localAdds = localAdds.filter((a) => norm(a['Produit']) !== key); store.set('localAdds', localAdds);
+    markedSets.courses.delete(key);
+    render();
+    try {
+      await send({ action: 'addStock', items: [it] });
+    } catch {
+      localStockAdds = localStockAdds.filter((a) => a !== row); store.set('localStockAdds', localStockAdds);
+      localCourseRemovals = localCourseRemovals.filter((r) => r !== rem); store.set('localCourseRemovals', localCourseRemovals);
+      localAdds = addsBefore; store.set('localAdds', localAdds);
+      render(); toast('Pas de réseau : rien n’a changé'); return;
+    }
+    try { await send({ action: 'removeCourses', produits: [name] }); } catch {}
+    toast(`${name} rangé · ${loc}`);
+    refresh();
+  });
+}
+
 function addFromStock(key) {
   if (needSync()) return;
   const s = stockItems().find((x) => x._key === key);
   if (s) addCourses([{ produit: s['Produit'], quantite: '', unite: '', categorie: s['Catégorie'] || 'Autre' }]);
 }
 
-// Glisser une ligne : ← marque pour suppression ; → dans le stock ajoute aux courses, dans les courses ouvre la fiche du produit
+// Glisser une ligne : ← marque pour suppression ; → dans le stock ajoute aux courses, dans les courses range le produit dans le stock
 let sw = null;
 let swipedAt = 0;
 const SWIPE_AT = 80;
@@ -1494,10 +1624,10 @@ function endSwipe() {
   row.style.transform = '';
   setTimeout(() => { delete el.dataset.dir; }, 200);
   if (Math.abs(dx) < SWIPE_AT) return;
-  store.set('swipeHint', false);
+  store.set(el.dataset.kind === 'courses' ? 'swipeHintC' : 'swipeHint', false);
   if (dx < 0) toggleMark(el.dataset.key, el.dataset.kind);
   else if (el.dataset.kind === 'stock') addFromStock(el.dataset.key);
-  else { const c = courses().find((x) => norm(x['Produit']) === el.dataset.key); if (c) openQtySheet(c['Produit']); }
+  else { const c = courses().find((x) => norm(x['Produit']) === el.dataset.key); if (c) openToStockSheet(c['Produit']); }
 }
 window.addEventListener('pointerup', endSwipe);
 window.addEventListener('pointercancel', endSwipe);
@@ -1661,10 +1791,10 @@ function priceInfo(produit) {
 }
 function priceLineHTML(c) {
   const pi = priceInfo(c['Produit']);
-  if (pi.skip) return `<div class="dline muted" data-dpro="${esc(c['Produit'])}">🛒 Pas pris au Drive</div>`;
+  if (pi.skip) return `<div class="dline muted">🛒 Pas pris au Drive</div>`;
   if (!pi.row) return data['Prix Drive'].length ? `<div class="dline muted">🛒 Prix au prochain passage du PC</div>` : '';
-  if (!pi.pick) return `<div class="dline muted" data-dpro="${esc(c['Produit'])}">🛒 Introuvable chez Leclerc</div>`;
-  return `<div class="dline${pi.chosen ? '' : ' sugg'}" data-dpro="${esc(c['Produit'])}"><span class="l">🛒 ${esc(pi.pick.l)}</span><b>${pi.pick.p ? euro(pi.pick.p * pi.packs) : ''}${pi.packs > 1 ? ` <small>(${pi.packs}×)</small>` : ''}</b></div>`;
+  if (!pi.pick) return `<div class="dline muted">🛒 Introuvable chez Leclerc</div>`;
+  return `<div class="dline${pi.chosen ? '' : ' sugg'}"><span class="l">🛒 ${esc(pi.pick.l)}</span><b>${pi.pick.p ? euro(pi.pick.p * pi.packs) : ''}${pi.packs > 1 ? ` <small>(${pi.packs}×)</small>` : ''}</b></div>`;
 }
 // Total estimé des produits cochés, au prix Leclerc
 function driveTotal() {
@@ -1736,6 +1866,7 @@ function viewCourses() {
   const done = items.filter(isSelected).length;
   let html = SYNC_URL ? viewDrive() : '';
   html += `<p class="sub">${items.length} produit${items.length > 1 ? 's' : ''} · ${done ? `${done} sélectionné${done > 1 ? 's' : ''}` : 'coche ceux à acheter'}</p>`;
+  if (store.get('swipeHintC', true)) html += '<div class="hint-swipe"><span>← Glisser pour supprimer</span><span>Glisser pour ranger dans le stock →</span></div>';
   html += `<div class="list-tools"><button data-selectall="${done === items.length ? 'off' : 'on'}">${done === items.length ? 'Tout désélectionner' : 'Tout sélectionner'}</button></div>`;
   const prioRank = (p) => ({ haute: 0, moyenne: 1, basse: 2 }[norm(p)] ?? 1);
   const groups = groupBy(items, 'Catégorie');
@@ -1747,13 +1878,14 @@ function viewCourses() {
       const high = norm(c['Priorité']) === 'haute';
       const by = norm(c['Ajouté par']) === 'habituel' ? '★ Habituel · plus en stock' : c['Ajouté par'] && norm(c['Ajouté par']) !== 'claude' ? 'Ajouté par ' + c['Ajouté par'] : '';
       const key = norm(c['Produit']);
+      const qt = qtyText(c['Quantité'], c['Unité']);
       html += `<div class="swipe${markedSets.courses.has(key) ? ' marked' : ''}" data-kind="courses" data-key="${esc(key)}">
-        <div class="swipe-bg"><span class="l"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg> Modifier</span><span class="r">Supprimer ${ICON_TRASH}</span></div>
-        <div class="row check-row${isSelected(c) ? ' done' : ''}" role="checkbox" aria-checked="${isSelected(c)}" tabindex="0" data-item="${esc(c['Produit'])}">
-        <span class="box">${ICON_CHECK}</span>
+        <div class="swipe-bg"><span class="l">${ICON_BOX} En stock</span><span class="r">Supprimer ${ICON_TRASH}</span></div>
+        <div class="row check-row${isSelected(c) ? ' done' : ''}" data-fiche="${esc(c['Produit'])}">
+        <button type="button" class="box-btn" role="checkbox" aria-checked="${isSelected(c)}" aria-label="Sélectionner ${esc(c['Produit'])}" data-item="${esc(c['Produit'])}"><span class="box">${ICON_CHECK}</span></button>
         <div class="main"><div class="name">${esc(c['Produit'])}</div>${by ? `<div class="meta">${esc(by)}</div>` : ''}${SYNC_URL ? priceLineHTML(c) : ''}</div>
         ${high ? '<span class="prio" title="Prioritaire"></span>' : ''}
-        <button class="qty-btn" data-qty="${esc(c['Produit'])}" aria-label="Modifier la quantité">${esc(qtyText(c['Quantité'], c['Unité'])) || '+ Qté'}</button></div></div>`;
+        <span class="qty-pill${qt ? '' : ' empty'}">${esc(qt) || 'Qté'}</span><span class="chev" aria-hidden="true">›</span></div></div>`;
     }
     html += '</div></div>';
   }
@@ -1997,6 +2129,21 @@ const IDEA_TYPES = ['Plat', 'Soupe', 'Salade', 'Dessert', 'Goûter'];
 let ideaTime = store.get('ideaTime', 'normal');
 
 let ideaMode = 'ideas';
+// Menu : 7 jours à partir d'aujourd'hui, matin / midi / soir au choix
+const MEALS = [['Matin', '☕'], ['Midi', '🍽'], ['Soir', '🌙']];
+const DAYS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const menuDates = () => Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d; });
+let menuSlots = new Set();
+const slotList = () => menuDates().flatMap((d) => MEALS.filter(([m]) => menuSlots.has(isoDate(d) + '|' + m)).map(([m]) => ({ date: isoDate(d), jour: DAYS_FR[d.getDay()], repas: m })));
+function slotsHTML() {
+  const days = menuDates();
+  return `<div class="slots"><span></span>${MEALS.map(([m]) => `<span class="h">${m}</span>`).join('')}
+    ${days.map((d, i) => `<span class="d">${i === 0 ? 'Aujourd’hui' : i === 1 ? 'Demain' : DAYS_FR[d.getDay()]}<small>${i < 2 ? DAYS_FR[d.getDay()].slice(0, 3) + '. ' : ''}${d.getDate()}</small></span>${MEALS.map(([m, ic]) => {
+      const k = isoDate(d) + '|' + m;
+      return `<button type="button" class="slot${menuSlots.has(k) ? ' on' : ''}" data-slot="${k}" aria-label="${DAYS_FR[d.getDay()]} ${m.toLowerCase()}">${menuSlots.has(k) ? ic : ''}</button>`;
+    }).join('')}`).join('')}</div>
+    <div class="slot-tools"><button type="button" data-slotall="Midi">Tous les midis</button><button type="button" data-slotall="Soir">Tous les soirs</button><button type="button" data-slotall="Matin">Tous les matins</button><button type="button" data-slotall="">Effacer</button></div>`;
+}
 function openIdeasSheet(mode = ideaMode) {
   if (needSync()) return;
   ideaMode = mode;
@@ -2006,18 +2153,31 @@ function openIdeasSheet(mode = ideaMode) {
   const bg = openSheet(`<h2>✨ ${menu ? 'Menu de la semaine' : 'Idées de recettes'}</h2>
     <div class="seg" style="margin-bottom:12px"><button type="button" data-mode="ideas" class="${menu ? '' : 'on'}">Idées</button><button type="button" data-mode="menu" class="${menu ? 'on' : ''}">📅 Menu de la semaine</button></div>
     <p class="hint" style="margin:0 4px 16px">${menu
-      ? 'Un dîner par jour à partir de demain, varié, qui utilise le stock et limite le gaspillage (remplace le menu actuel)'
+      ? 'Choisis les jours et les repas : une recette par repas, variée, qui utilise le stock et limite le gaspillage (remplace le menu actuel)'
       : 'Claude propose des recettes pour 3 avec ce qu’il y a en stock'}${urgent ? `, en priorité les ${urgent} produit${urgent > 1 ? 's' : ''} à finir vite` : ''}. Prêt à ${IDEAS_TIMES}.</p>
     <span class="field"><span>Combien de temps pour cuisiner ?</span></span>
     <div class="seg three" style="margin-bottom:14px">${IDEA_TIMES.map(([k, l, d]) => `<button type="button" data-time="${k}" class="${k === ideaTime ? 'on' : ''}">${l}<small>${d}</small></button>`).join('')}</div>
     ${menu ? '' : `<span class="field"><span>Quoi ?</span></span>${pickChips('type', IDEA_TYPES, ['Plat'], false)}`}
-    <span class="field"><span>Goûts à respecter</span></span>${pickChips('pour', PROFILES, PROFILES)}
+    <span class="field"><span>Goûts à respecter</span></span>
+    <p class="hint" style="margin:-2px 4px 8px">Les tiens (${esc(profile)}) sont toujours respectés. Touche pour ajouter ceux de :</p>
+    ${pickChips('pour', PROFILES.filter((p) => norm(p) !== norm(profile)), [])}
     ${hasPrefs(profile) ? '' : '<p class="hint" style="margin:-6px 4px 14px">Astuce : renseigne <button type="button" data-prefs style="color:var(--accent);font-weight:600;padding:0;font-size:inherit">tes goûts</button> pour des idées plus personnalisées.</p>'}
     <div class="card toggle-row" data-only style="cursor:pointer;margin-bottom:14px"><span>Seulement avec ce que j’ai<br><small style="color:var(--muted)">sel, poivre, huile et épices en plus</small></span><span class="switch" id="swOnly"></span></div>
-    <span class="field"><span>${menu ? 'Combien de repas ?' : 'Combien de recettes ?'}</span></span>
-    <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="${n}" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>
+    ${menu ? `<span class="field"><span>Quels repas ?</span></span><div id="slotBox">${slotsHTML()}</div>` : `<span class="field"><span>Combien de recettes ?</span></span>
+    <div class="qty-stepper"><button type="button" data-n="-1" aria-label="Moins">−</button><input id="ideasN" value="${n}" readonly><button type="button" data-n="1" aria-label="Plus">+</button></div>`}
     <label class="field"><span>Une envie ? (facultatif)</span><input id="ideasWish" placeholder="Ex. végétarien, gratin, comme au Maroc…" maxlength="200" autocomplete="off"></label>
-    <button class="btn" id="ideasGo">${menu ? 'Demander le menu' : 'Demander'}</button>`);
+    <button class="btn" id="ideasGo">Demander</button>`);
+  // Menu : on ne garde que les repas encore à venir dans la grille ; le bouton dit combien
+  const valid = new Set(menuDates().flatMap((d) => MEALS.map(([m]) => isoDate(d) + '|' + m)));
+  menuSlots = new Set([...menuSlots].filter((k) => valid.has(k)));
+  const goLabel = () => {
+    const go = bg.querySelector('#ideasGo');
+    if (!menu) return;
+    const k = menuSlots.size;
+    go.disabled = !k;
+    go.textContent = k ? `Demander le menu · ${k} repas` : 'Choisis au moins un repas';
+  };
+  goLabel();
   bg.addEventListener('click', async (e) => {
     const md = e.target.closest('[data-mode]');
     if (md) { if (md.dataset.mode !== ideaMode) openIdeasSheet(md.dataset.mode); return; }
@@ -2026,12 +2186,25 @@ function openIdeasSheet(mode = ideaMode) {
     if (tm) { ideaTime = tm.dataset.time; store.set('ideaTime', ideaTime); bg.querySelectorAll('[data-time]').forEach((b) => b.classList.toggle('on', b === tm)); return; }
     if (e.target.closest('[data-only]')) { $('#swOnly').classList.toggle('on'); return; }
     const s = e.target.closest('[data-n]');
-    if (s) { n = Math.max(menu ? 2 : 1, Math.min(menu ? 7 : 5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
+    if (s) { n = Math.max(1, Math.min(5, n + +s.dataset.n)); $('#ideasN').value = n; return; }
+    const sl = e.target.closest('[data-slot]');
+    const sa = e.target.closest('[data-slotall]');
+    if (sl || sa) {
+      if (sl) { if (menuSlots.has(sl.dataset.slot)) menuSlots.delete(sl.dataset.slot); else menuSlots.add(sl.dataset.slot); }
+      else if (!sa.dataset.slotall) menuSlots.clear();
+      else {
+        const ks = menuDates().map((d) => isoDate(d) + '|' + sa.dataset.slotall);
+        const all = ks.every((k) => menuSlots.has(k));
+        ks.forEach((k) => (all ? menuSlots.delete(k) : menuSlots.add(k)));
+      }
+      bg.querySelector('#slotBox').innerHTML = slotsHTML(); goLabel(); return;
+    }
     if (!e.target.closest('#ideasGo')) return;
-    const pour = picked(bg, 'pour');
+    if (menu && !menuSlots.size) return;
+    const pour = [profile, ...picked(bg, 'pour')];
     const req = {
-      action: 'requestIdeas', nombre: n, envie: $('#ideasWish').value.trim(), par: profile, temps: ideaTime,
-      type: menu ? 'Plat' : picked(bg, 'type')[0] || '', pour: pour.length ? pour : [profile], stockSeul: $('#swOnly').classList.contains('on'), menu,
+      action: 'requestIdeas', nombre: menu ? menuSlots.size : n, envie: $('#ideasWish').value.trim(), par: profile, temps: ideaTime,
+      type: menu ? 'Plat' : picked(bg, 'type')[0] || '', pour, creneaux: menu ? slotList() : undefined, stockSeul: $('#swOnly').classList.contains('on'), menu,
     };
     bg.remove();
     const tmp = { id: 'tmp' + Date.now(), type: 'ideas', at: Date.now(), sending: true };
@@ -2481,9 +2654,9 @@ function menuHTML() {
   const menu = menuRecipes();
   if (!menu.length) return '';
   return `<div class="card menu-card">
-    <div class="menu-head"><b>📅 Menu de la semaine</b><button data-menuclear>Effacer</button></div>
-    ${menu.map((r) => `<div class="rrow" data-recipe="${recipeId(r)}"><span class="day">${esc(String(r['Menu']).split('|')[1] || '')}</span>
-      <span class="main"><span class="title">${esc(r['Nom'])}${isProposed(r) ? '<span class="badge new">Nouvelle</span>' : ''}</span><span class="meta">${esc([r['Temps (min)'] ? '⏱ ' + fmtMin(r['Temps (min)']) : '', r['Difficulté']].filter(Boolean).join(' · '))}</span></span></div>`).join('')}
+    <div class="menu-head"><b>📅 Menu</b><button data-menuclear>Effacer</button></div>
+    ${menu.map((r) => { const [jour, ...rest] = (String(r['Menu']).split('|')[1] || '').split(' '); return `<div class="rrow" data-recipe="${recipeId(r)}"><span class="day">${esc(jour)}${rest.length ? `<small>${esc(rest.join(' '))}</small>` : ''}</span>
+      <span class="main"><span class="title">${esc(r['Nom'])}${isProposed(r) ? '<span class="badge new">Nouvelle</span>' : ''}</span><span class="meta">${esc([r['Temps (min)'] ? '⏱ ' + fmtMin(r['Temps (min)']) : '', r['Difficulté']].filter(Boolean).join(' · '))}</span></span></div>`; }).join('')}
     <div style="padding:10px 12px 12px"><button class="btn ghost" data-menushop>🛒 Choisir les courses du menu</button></div>
   </div>`;
 }
@@ -2601,6 +2774,8 @@ document.addEventListener('click', (e) => {
   if (sr) { openStockEdit(sr.dataset.key); return; }
   const c = e.target.closest('[data-item]');
   if (c) { toggleItem(c.dataset.item); return; }
+  const fi = e.target.closest('[data-fiche]');
+  if (fi) { openQtySheet(fi.dataset.fiche); return; }
   const sa = e.target.closest('[data-selectall]');
   if (sa) { selectAll(sa.dataset.selectall === 'on'); return; }
   if (e.target.closest('[data-clearbought]')) {

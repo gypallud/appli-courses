@@ -190,8 +190,13 @@ function equipmentOf(ctx, eaters) {
 // Jours du menu : à partir de demain
 const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const menuDays = (n) => Array.from({ length: n }, (_, i) => DAY_NAMES[(new Date().getDay() + 1 + i) % 7]);
+// Repas du menu choisis dans l'appli (jour + Matin / Midi / Soir) ; les anciennes demandes = un dîner par jour
+const MEAL_TXT = { Matin: 'petit-déjeuner', Midi: 'déjeuner', Soir: 'dîner' };
+const menuSlots = (req) => (req.creneaux && req.creneaux.length ? req.creneaux : menuDays(req.nombre || 5).map((jour) => ({ jour, repas: 'Soir' })));
+const slotLabel = (c) => `${c.jour} ${String(c.repas).toLowerCase()}`;
+const MENU_BATCH = 7; // repas demandés à Claude en une fois
 
-function ideasPrompt(t, ctx) {
+function ideasPrompt(t, ctx, part = null) {
   const req = JSON.parse(t['Fichier'] || '{}');
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const days = (s) => (s['DLC'] ? (new Date(s['DLC']) - today) / 86400000 : Infinity);
@@ -200,13 +205,17 @@ function ideasPrompt(t, ctx) {
   const eaters = eatersOf(t, req);
   const time = TIMES[req.temps] || TIMES.normal;
   const equip = equipmentOf(ctx, eaters);
-  const menuList = menuDays(req.nombre || 5);
+  const slots = part ? part.slots : menuSlots(req);
   return `Tu es un cuisinier qui propose des recettes personnalisées à un foyer français de 3 adultes.
 ${req.menu
-    ? `Compose le MENU des dîners des ${menuList.length} prochains jours (${menuList.join(', ')}), une recette par jour, dans cet ordre, pour 3 personnes.
-- Menu équilibré et varié : pas deux fois la même viande ou le même féculent d'affilée, du poisson au moins une fois et un plat végétarien si le menu fait 4 jours ou plus, des légumes chaque jour.
-- Limite le gaspillage : les produits qui périment en premier dans les premiers jours, et des ingrédients partagés entre recettes (une crème, un bouquet d'herbes, un paquet entamé) plutôt que des produits achetés pour une seule fois.
-- Un plat qui prend plus de temps est bienvenu le samedi ou le dimanche.`
+    ? `Compose le MENU de ces ${slots.length} repas, exactement une recette par repas, dans cet ordre, pour 3 personnes :
+${slots.map((c, i) => `${i + 1}. ${slotLabel(c)} (${MEAL_TXT[c.repas] || 'dîner'})`).join('\n')}
+- Petit-déjeuner : une vraie recette de petit-déjeuner (sucrée ou salée : pancakes, œufs, porridge, tartines garnies, smoothie bowl…), pas un plat ; type « Petit-déjeuner ».
+- Déjeuner et dîner : un plat complet ; type « Plat ».
+- Menu équilibré et varié : pas deux fois la même viande ou le même féculent d'affilée, du poisson au moins une fois et un plat végétarien dès qu'il y a 4 déjeuners/dîners ou plus, des légumes chaque jour.
+- Limite le gaspillage : les produits qui périment en premier dans les premiers repas, et des ingrédients partagés entre recettes (une crème, un bouquet d'herbes, un paquet entamé) plutôt que des produits achetés pour une seule fois.
+- Un plat qui prend plus de temps est bienvenu le samedi ou le dimanche.
+${part && part.already.length ? `- Déjà prévu dans ce menu, à ne pas répéter (varie avec) : ${part.already.join(', ')}.\n` : ''}- Indique pour chaque recette "creneau" : son numéro dans la liste ci-dessus.`
     : `Propose ${req.nombre || 3} recette(s) VRAIMENT différentes entre elles (techniques, saveurs, cuisines variées), réalistes, pour 3 personnes.
 Type de recette : ${req.type || 'Plat'}.`}
 Temps : ${time.text}
@@ -232,7 +241,7 @@ ${equip.length ? `- Équipement disponible : plaques de cuisson, ${equip.join(',
 - Catégorie : exactement une de Volaille, Viande, Poisson, Pâtes, Soupe, Salade, Dessert, Végétarien.
 
 Réponds UNIQUEMENT avec un objet JSON, sans texte autour, sans bloc de code :
-{"recettes":[{"nom":"…","type":"${req.type || 'Plat'}","categorie":"Volaille","difficulte":"Facile|Moyen|Difficile","cout":"Bon marché|Moyen|Cher","preparation":15,"cuisson":20,"ingredients":["…"],"etapes":["…"],"astuce":"…","sans_porc":true}],"resume":"3 recettes ajoutées"}`;
+{"recettes":[{${req.menu ? '"creneau":1,' : ''}"nom":"…","type":"${req.menu ? 'Plat|Petit-déjeuner' : req.type || 'Plat'}","categorie":"Volaille","difficulte":"Facile|Moyen|Difficile","cout":"Bon marché|Moyen|Cher","preparation":15,"cuisson":20,"ingredients":["…"],"etapes":["…"],"astuce":"…","sans_porc":true}],"resume":"3 recettes ajoutées"}`;
 }
 
 async function processIdeas(t, ctx) {
@@ -241,11 +250,28 @@ async function processIdeas(t, ctx) {
     const req = JSON.parse(t['Fichier'] || '{}');
     const eaters = eatersOf(t, req);
     const max = (TIMES[req.temps] || TIMES.normal).max;
-    const out = await runClaude(ideasPrompt(t, ctx), dir);
-    const all = (out.recettes || []).filter((r) => r.nom && !(noPork(eaters) && r.sans_porc === false));
-    // Une recette « rapide » qui dépasse nettement le temps demandé est écartée
-    const days = menuDays(req.nombre || 5);
-    // Pour un menu, on garde tous les jours (le temps sert de consigne) ; sinon une recette trop longue est écartée
+    const ok = (r) => r.nom && !(noPork(eaters) && r.sans_porc === false);
+    let all;
+    if (req.menu) {
+      // Menu : par paquets de 7 repas (une grande semaine matin, midi et soir = 3 appels), chaque recette rattachée à son repas
+      const slots = menuSlots(req);
+      all = [];
+      for (let start = 0; start < slots.length; start += MENU_BATCH) {
+        const part = { slots: slots.slice(start, start + MENU_BATCH), already: all.map((r) => r.nom) };
+        const out = await runClaude(ideasPrompt(t, ctx, part), dir);
+        (out.recettes || []).filter(ok).forEach((r, i) => {
+          const n = Number.isInteger(+r.creneau) && +r.creneau >= 1 && +r.creneau <= part.slots.length ? +r.creneau - 1 : i;
+          if (n >= part.slots.length || all.some((x) => x._slot === start + n)) return;
+          all.push({ ...r, _slot: start + n, type: part.slots[n].repas === 'Matin' ? 'Petit-déjeuner' : 'Plat' });
+        });
+      }
+      all.sort((a, b) => a._slot - b._slot);
+    } else {
+      const out = await runClaude(ideasPrompt(t, ctx), dir);
+      all = (out.recettes || []).filter(ok);
+    }
+    const slots = menuSlots(req);
+    // Pour un menu, on garde tous les repas (le temps sert de consigne) ; sinon une recette trop longue est écartée
     const recettes = all.filter((r) => req.menu || !max || (+r.preparation || 0) + (+r.cuisson || 0) <= max + (max <= 15 ? 0 : 5))
       .map((r, i) => ({
         'Nom': r.nom, 'Portions': 3, 'Temps (min)': (+r.preparation || 0) + (+r.cuisson || 0) || '',
@@ -255,11 +281,11 @@ async function processIdeas(t, ctx) {
         'Type': r.type || req.type || 'Plat', 'Difficulté': r.difficulte || 'Facile', 'Coût': r.cout || 'Bon marché',
         'Préparation (min)': r.preparation || '', 'Cuisson (min)': r.cuisson || '', 'Image': '',
         'Catégorie': r.categorie || '', 'Astuce': String(r.astuce || '').slice(0, 300), 'Statut': 'Proposée',
-        'Menu': req.menu && days[i] ? `${i + 1}|${days[i]}` : '',
+        'Menu': req.menu && slots[r._slot] ? `${r._slot + 1}|${slotLabel(slots[r._slot])}` : '',
       }));
     if (!recettes.length) throw new Error(all.length ? 'recettes trop longues pour le temps demandé' : 'aucune recette proposée');
     if (TRIAL) { console.log(ideasPrompt(t, ctx)); console.log(JSON.stringify(recettes, null, 2)); return 'essai : rien enregistré'; }
-    const resume = req.menu ? `Menu de ${recettes.length} jours prêt` : recettes.length === 1 ? '1 recette proposée : ' + recettes[0]['Nom'] : `${recettes.length} recettes proposées`;
+    const resume = req.menu ? `Menu de ${recettes.length} repas prêt` : recettes.length === 1 ? '1 recette proposée : ' + recettes[0]['Nom'] : `${recettes.length} recettes proposées`;
     await call('applyRecipes', { id: t['ID'], recettes, resume, menu: !!req.menu });
     return resume;
   } finally {
@@ -496,7 +522,7 @@ if (PLANTS_MODE && TRIAL) {
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (TRIAL) {
   call('pending')
-    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': JSON.stringify(process.argv.includes('--menu') ? { nombre: 4, temps: 'normal', menu: true, pour: ['Henda', 'Gérémy'] } : { nombre: 2, temps: 'rapide', type: 'Plat', pour: ['Henda', 'Gérémy'] }) }, ctx))
+    .then((ctx) => processIdeas({ 'ID': 'essai', 'Envoyé par': 'Henda', 'Fichier': JSON.stringify(process.argv.includes('--menu') ? { nombre: 3, temps: 'normal', menu: true, pour: ['Gérémy'], creneaux: [{ jour: 'Samedi', repas: 'Matin' }, { jour: 'Samedi', repas: 'Midi' }, { jour: 'Dimanche', repas: 'Soir' }] } : { nombre: 2, temps: 'rapide', type: 'Plat', pour: ['Henda', 'Gérémy'] }) }, ctx))
     .then((m) => log(m), (e) => log('Erreur :', e.message));
 } else if (process.argv.includes('--once')) {
   log('Passage unique.');
